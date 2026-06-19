@@ -124,7 +124,7 @@ export async function crawlSite(opts: CrawlOptions): Promise<CrawlResult[]> {
     const url = queue.shift()!;
     const html = await fetchHtml(url);
     if (html) {
-      const extracted = extractContent(html, url);
+      const extracted = await extractContent(html, url);
       // Skip near-empty pages (likely redirects/landing shells).
       if (extracted.wordCount >= 20) {
         const page: CrawlResult = {

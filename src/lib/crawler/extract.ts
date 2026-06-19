@@ -1,6 +1,3 @@
-import { JSDOM } from "jsdom";
-import { Readability } from "@mozilla/readability";
-
 export interface ExtractedPage {
   title: string | null;
   headings: { tag: string; text: string }[];
@@ -12,8 +9,15 @@ export interface ExtractedPage {
 /**
  * Parse raw HTML into clean article text (nav/footer/boilerplate stripped via
  * Readability), structured headings, and same-document links for crawling.
+ *
+ * jsdom and Readability are imported dynamically so they stay out of the
+ * module's static graph — Turbopack otherwise bundles jsdom's dynamic requires
+ * into the serverless function and crashes it on load.
  */
-export function extractContent(html: string, baseUrl: string): ExtractedPage {
+export async function extractContent(html: string, baseUrl: string): Promise<ExtractedPage> {
+  const { JSDOM } = await import("jsdom");
+  const { Readability } = await import("@mozilla/readability");
+
   const dom = new JSDOM(html, { url: baseUrl });
   const doc = dom.window.document;
 
