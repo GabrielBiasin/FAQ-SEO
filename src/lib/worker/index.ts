@@ -1,5 +1,6 @@
 import { claimNextJob, completeJob, failJob } from "../jobs";
 import type { JobType, Json } from "@/types/database";
+import { handleCrawlSite } from "./handlers/crawl-site";
 
 export interface JobContext {
   jobId: string;
@@ -14,7 +15,7 @@ export type JobHandler = (ctx: JobContext) => Promise<Json>;
  * Stubs return a placeholder result until the corresponding milestone lands.
  */
 const handlers: Partial<Record<JobType, JobHandler>> = {
-  // crawl_site:        filled in Milestone 3
+  crawl_site: handleCrawlSite,
   // analyze_topics:    filled in Milestone 4
   // discover_questions:filled in Milestone 5
   // generate_answers:  filled in Milestone 6

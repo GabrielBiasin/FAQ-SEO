@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import JobsPanel from "@/components/JobsPanel";
+import CrawlTab from "@/components/tabs/CrawlTab";
 import type { Database } from "@/types/database";
 
 type Project = Database["public"]["Tables"]["projects"]["Row"];
@@ -104,7 +105,7 @@ function TabContent({ tab, project }: { tab: TabKey; project: Project }) {
 
   switch (tab) {
     case "crawl":
-      return placeholder("Milestone 3");
+      return <CrawlTab projectId={project.id} />;
     case "questions":
       return placeholder("Milestones 4–5");
     case "brand":
