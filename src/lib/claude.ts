@@ -31,6 +31,35 @@ export function parseJsonResponse<T>(raw: string): T {
 }
 
 /**
+ * Extract the last balanced JSON object/array from a string that may contain
+ * surrounding prose (e.g. responses produced while using the web_search tool).
+ * Falls back to parseJsonResponse for clean responses.
+ */
+export function parseLooseJson<T>(raw: string): T {
+  const cleaned = raw.replace(/```(?:json)?/gi, "").trim();
+  // Try a straight parse first.
+  try {
+    return JSON.parse(cleaned) as T;
+  } catch {
+    /* fall through to scanning */
+  }
+  // Scan for the last top-level { } or [ ] block.
+  for (const [open, close] of [["{", "}"], ["[", "]"]] as const) {
+    const start = cleaned.indexOf(open);
+    const end = cleaned.lastIndexOf(close);
+    if (start !== -1 && end > start) {
+      const slice = cleaned.slice(start, end + 1);
+      try {
+        return JSON.parse(slice) as T;
+      } catch {
+        /* try next bracket type */
+      }
+    }
+  }
+  throw new Error(`parseLooseJson: no JSON found in: ${cleaned.slice(0, 200)}`);
+}
+
+/**
  * Extract text content from an Anthropic message response.
  */
 export function extractText(

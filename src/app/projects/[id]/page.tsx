@@ -5,7 +5,7 @@ import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import JobsPanel from "@/components/JobsPanel";
 import CrawlTab from "@/components/tabs/CrawlTab";
-import TopicsTab from "@/components/tabs/TopicsTab";
+import TopicsQuestionsTab from "@/components/tabs/TopicsQuestionsTab";
 import type { Database } from "@/types/database";
 
 type Project = Database["public"]["Tables"]["projects"]["Row"];
@@ -108,7 +108,7 @@ function TabContent({ tab, project }: { tab: TabKey; project: Project }) {
     case "crawl":
       return <CrawlTab projectId={project.id} />;
     case "questions":
-      return <TopicsTab projectId={project.id} />;
+      return <TopicsQuestionsTab projectId={project.id} />;
     case "brand":
       return placeholder("Milestone 7");
     case "faqs":
