@@ -6,42 +6,56 @@ export interface ExtractedPage {
   links: string[];
 }
 
+function absolute(href: string, base: string): string | null {
+  try {
+    return new URL(href, base).toString();
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Parse raw HTML into clean article text (nav/footer/boilerplate stripped via
  * Readability), structured headings, and same-document links for crawling.
  *
- * jsdom and Readability are imported dynamically so they stay out of the
- * module's static graph — Turbopack otherwise bundles jsdom's dynamic requires
- * into the serverless function and crashes it on load.
+ * Uses linkedom (a lightweight, serverless-friendly DOM) instead of jsdom,
+ * which pulls native/ESM-incompatible transitive deps that crash on Vercel.
+ * Imported dynamically to keep it out of the worker's static module graph.
  */
 export async function extractContent(html: string, baseUrl: string): Promise<ExtractedPage> {
-  const { JSDOM } = await import("jsdom");
+  const { parseHTML } = await import("linkedom");
   const { Readability } = await import("@mozilla/readability");
 
-  const dom = new JSDOM(html, { url: baseUrl });
-  const doc = dom.window.document;
+  const { document } = parseHTML(html);
 
-  // Collect links before Readability mutates the DOM.
-  const links = Array.from(doc.querySelectorAll("a[href]"))
-    .map((a) => (a as HTMLAnchorElement).href)
-    .filter(Boolean);
+  // Collect links (resolved to absolute against the page URL) before Readability
+  // mutates the DOM.
+  const links = Array.from(document.querySelectorAll("a[href]"))
+    .map((a) => absolute(a.getAttribute("href") || "", baseUrl))
+    .filter((u): u is string => Boolean(u));
 
   // Collect headings from the original document for structure.
-  const headings = Array.from(doc.querySelectorAll("h1, h2, h3"))
+  const headings = Array.from(document.querySelectorAll("h1, h2, h3"))
     .map((h) => ({ tag: h.tagName.toLowerCase(), text: (h.textContent || "").trim() }))
     .filter((h) => h.text.length > 0);
 
   let cleanText = "";
-  let title: string | null = doc.title?.trim() || null;
+  let title: string | null = document.title?.trim() || null;
   try {
-    const article = new Readability(doc).parse();
+    // Readability accepts a Document-like object; linkedom's document qualifies.
+    const article = new Readability(document as unknown as Document).parse();
     if (article) {
       cleanText = (article.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
       title = article.title?.trim() || title;
     }
   } catch {
     // Fall back to body text if Readability fails on odd markup.
-    cleanText = (doc.body?.textContent || "").replace(/\s+/g, " ").trim();
+    cleanText = (document.body?.textContent || "").replace(/\s+/g, " ").trim();
+  }
+  // Secondary fallback: if Readability produced little, use body text.
+  if (cleanText.length < 40) {
+    const body = (document.body?.textContent || "").replace(/\s+/g, " ").trim();
+    if (body.length > cleanText.length) cleanText = body;
   }
 
   const wordCount = cleanText ? cleanText.split(/\s+/).length : 0;

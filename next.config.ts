@@ -1,10 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // jsdom (and its readability consumer) use dynamic requires that break when
-  // bundled into a serverless function. Keep them external so they load from
-  // node_modules at runtime on Vercel.
-  serverExternalPackages: ["jsdom", "@mozilla/readability"],
+  // Keep the DOM/readability libs external so they load from node_modules at
+  // runtime rather than being bundled into the serverless function.
+  serverExternalPackages: ["linkedom", "@mozilla/readability"],
 };
 
 export default nextConfig;
