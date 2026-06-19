@@ -1,6 +1,7 @@
 import { claimNextJob, completeJob, failJob } from "../jobs";
 import type { JobType, Json } from "@/types/database";
 import { handleCrawlSite } from "./handlers/crawl-site";
+import { handleAnalyzeTopics } from "./handlers/analyze-topics";
 
 export interface JobContext {
   jobId: string;
@@ -16,7 +17,7 @@ export type JobHandler = (ctx: JobContext) => Promise<Json>;
  */
 const handlers: Partial<Record<JobType, JobHandler>> = {
   crawl_site: handleCrawlSite,
-  // analyze_topics:    filled in Milestone 4
+  analyze_topics: handleAnalyzeTopics,
   // discover_questions:filled in Milestone 5
   // generate_answers:  filled in Milestone 6
   // verify_answers:    filled in Milestone 6
