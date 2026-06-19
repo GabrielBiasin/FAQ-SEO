@@ -7,6 +7,9 @@ import JobsPanel from "@/components/JobsPanel";
 import CrawlTab from "@/components/tabs/CrawlTab";
 import TopicsQuestionsTab from "@/components/tabs/TopicsQuestionsTab";
 import FaqsTab from "@/components/tabs/FaqsTab";
+import BrandTab from "@/components/tabs/BrandTab";
+import ExportTab from "@/components/tabs/ExportTab";
+import EvalTab from "@/components/tabs/EvalTab";
 import type { Database } from "@/types/database";
 
 type Project = Database["public"]["Tables"]["projects"]["Row"];
@@ -99,25 +102,19 @@ export default function ProjectDetailPage({
 }
 
 function TabContent({ tab, project }: { tab: TabKey; project: Project }) {
-  const placeholder = (milestone: string) => (
-    <div className="rounded-lg border border-dashed border-zinc-300 p-10 text-center text-zinc-400">
-      Pendiente — se implementa en {milestone}.
-    </div>
-  );
-
   switch (tab) {
     case "crawl":
       return <CrawlTab projectId={project.id} />;
     case "questions":
       return <TopicsQuestionsTab projectId={project.id} />;
     case "brand":
-      return placeholder("Milestone 7");
+      return <BrandTab projectId={project.id} />;
     case "faqs":
       return <FaqsTab projectId={project.id} />;
     case "export":
-      return placeholder("Milestone 8");
+      return <ExportTab projectId={project.id} />;
     case "eval":
-      return placeholder("Milestone 9");
+      return <EvalTab projectId={project.id} />;
     default:
       return null;
   }

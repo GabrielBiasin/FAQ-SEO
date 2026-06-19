@@ -5,6 +5,9 @@ import { handleAnalyzeTopics } from "./handlers/analyze-topics";
 import { handleDiscoverQuestions } from "./handlers/discover-questions";
 import { handleGenerateAnswers } from "./handlers/generate-answers";
 import { handleVerifyAnswers } from "./handlers/verify-answers";
+import { handleBrandAudit } from "./handlers/brand-audit";
+import { handleRunEval } from "./handlers/run-eval";
+import { handleCitationCheck } from "./handlers/citation-check";
 
 export interface JobContext {
   jobId: string;
@@ -24,9 +27,9 @@ const handlers: Partial<Record<JobType, JobHandler>> = {
   discover_questions: handleDiscoverQuestions,
   generate_answers: handleGenerateAnswers,
   verify_answers: handleVerifyAnswers,
-  // brand_audit:       filled in Milestone 7
-  // run_eval:          filled in Milestone 9
-  // citation_check:    filled in Milestone 10
+  brand_audit: handleBrandAudit,
+  run_eval: handleRunEval,
+  citation_check: handleCitationCheck,
 };
 
 export function registerHandler(type: JobType, handler: JobHandler) {
