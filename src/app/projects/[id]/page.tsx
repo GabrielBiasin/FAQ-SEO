@@ -6,6 +6,7 @@ import { apiGet } from "@/lib/api";
 import JobsPanel from "@/components/JobsPanel";
 import CrawlTab from "@/components/tabs/CrawlTab";
 import TopicsQuestionsTab from "@/components/tabs/TopicsQuestionsTab";
+import FaqsTab from "@/components/tabs/FaqsTab";
 import type { Database } from "@/types/database";
 
 type Project = Database["public"]["Tables"]["projects"]["Row"];
@@ -112,7 +113,7 @@ function TabContent({ tab, project }: { tab: TabKey; project: Project }) {
     case "brand":
       return placeholder("Milestone 7");
     case "faqs":
-      return placeholder("Milestone 6");
+      return <FaqsTab projectId={project.id} />;
     case "export":
       return placeholder("Milestone 8");
     case "eval":
