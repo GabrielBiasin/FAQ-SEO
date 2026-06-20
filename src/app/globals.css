@@ -12,15 +12,27 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* The app is designed light-only; pin the scheme so OS dark mode doesn't
+   wash out input text or invert colors. */
+:root {
+  color-scheme: light;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Form controls: dark, legible text and a readable (not too faint) placeholder. */
+input,
+textarea,
+select {
+  color: #18181b; /* zinc-900 */
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #71717a; /* zinc-500 — clearly readable */
+  opacity: 1; /* Firefox lowers placeholder opacity by default */
 }
