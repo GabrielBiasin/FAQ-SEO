@@ -2,8 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { apiGet, apiPost } from "@/lib/api";
+import { apiGet, apiPost, apiDelete } from "@/lib/api";
+import { Trash2 } from "lucide-react";
 import type { Database } from "@/types/database";
+
+function TrashIcon() {
+  return <Trash2 size={16} strokeWidth={2} />;
+}
 
 type Project = Database["public"]["Tables"]["projects"]["Row"];
 
@@ -22,6 +27,25 @@ export default function ProjectsPage() {
       setError(e instanceof Error ? e.message : "Error al cargar");
     } finally {
       setLoading(false);
+    }
+  }
+
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  async function deleteProject(p: Project) {
+    const ok = window.confirm(
+      `¿Borrar el proyecto "${p.name}"?\n\nSe eliminan también su crawl, páginas, preguntas, FAQs y evals. Esta acción no se puede deshacer.`
+    );
+    if (!ok) return;
+    setDeleting(p.id);
+    setError(null);
+    try {
+      await apiDelete(`/api/projects/${p.id}`);
+      setProjects((prev) => prev.filter((x) => x.id !== p.id));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al borrar");
+    } finally {
+      setDeleting(null);
     }
   }
 
@@ -69,11 +93,11 @@ export default function ProjectsPage() {
         ) : (
           <ul className="space-y-3">
             {projects.map((p) => (
-              <li key={p.id}>
-                <Link
-                  href={`/projects/${p.id}`}
-                  className="block rounded-lg border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-400"
-                >
+              <li
+                key={p.id}
+                className="group flex items-center gap-2 rounded-lg border border-zinc-200 bg-white pr-3 transition-colors hover:border-zinc-400"
+              >
+                <Link href={`/projects/${p.id}`} className="flex-1 p-4">
                   <div className="flex items-center justify-between">
                     <div>
                       <h3 className="font-medium text-zinc-900">{p.name}</h3>
@@ -84,6 +108,15 @@ export default function ProjectsPage() {
                     </span>
                   </div>
                 </Link>
+                <button
+                  onClick={() => deleteProject(p)}
+                  disabled={deleting === p.id}
+                  title="Borrar proyecto"
+                  aria-label={`Borrar ${p.name}`}
+                  className="shrink-0 rounded-md p-2 text-zinc-300 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                >
+                  {deleting === p.id ? "…" : <TrashIcon />}
+                </button>
               </li>
             ))}
           </ul>

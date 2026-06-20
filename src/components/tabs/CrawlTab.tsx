@@ -42,12 +42,17 @@ export default function CrawlTab({ projectId }: { projectId: string }) {
     load();
   }, [load]);
 
-  // Poll while a crawl is active.
+  // Poll while a crawl is active. A queued crawl that never started means the
+  // worker missed it (e.g. a transient failure) — re-poke so it self-heals.
   useEffect(() => {
     if (crawl?.status !== "queued" && crawl?.status !== "running") return;
-    const t = setInterval(load, 2500);
+    if (crawl?.status === "queued") pokeWorker(projectId);
+    const t = setInterval(() => {
+      if (crawl?.status === "queued") pokeWorker(projectId);
+      load();
+    }, 2500);
     return () => clearInterval(t);
-  }, [crawl?.status, load]);
+  }, [crawl?.status, load, projectId]);
 
   async function launch() {
     setLaunching(true);
