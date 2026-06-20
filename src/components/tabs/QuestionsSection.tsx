@@ -10,6 +10,11 @@ interface TopicLite {
   name: string;
   priority: number;
 }
+interface PageLite {
+  id: string;
+  url: string;
+  title: string | null;
+}
 
 const TIER_ORDER: Record<QuestionTier, number> = { head: 0, mid: 1, long: 2 };
 const TIER_BADGE: Record<string, string> = {
@@ -28,18 +33,24 @@ const INTENT_BADGE: Record<string, string> = {
 export default function QuestionsSection({ projectId }: { projectId: string }) {
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [topics, setTopics] = useState<TopicLite[]>([]);
+  const [pages, setPages] = useState<PageLite[]>([]);
   const [running, setRunning] = useState(false);
+  const [placing, setPlacing] = useState(false);
+  const [groupBy, setGroupBy] = useState<"topic" | "section">("section");
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
 
   const load = useCallback(async () => {
     try {
-      const r = await apiGet<{ questions: QuestionRow[]; topics: TopicLite[] }>(
-        `/api/projects/${projectId}/questions`
-      );
+      const r = await apiGet<{
+        questions: QuestionRow[];
+        topics: TopicLite[];
+        pages: PageLite[];
+      }>(`/api/projects/${projectId}/questions`);
       setQuestions(r.questions);
       setTopics(r.topics);
+      setPages(r.pages ?? []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
     }
@@ -50,10 +61,25 @@ export default function QuestionsSection({ projectId }: { projectId: string }) {
   }, [load]);
 
   useEffect(() => {
-    if (!running) return;
+    if (!running && !placing) return;
     const t = setInterval(load, 3500);
     return () => clearInterval(t);
-  }, [running, load]);
+  }, [running, placing, load]);
+
+  async function assignSections() {
+    setPlacing(true);
+    setError(null);
+    try {
+      await apiPost(`/api/projects/${projectId}/questions`, {
+        action: "assign_placements",
+      });
+      pokeWorker(projectId);
+      setTimeout(() => setPlacing(false), 60000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error");
+      setPlacing(false);
+    }
+  }
 
   async function discover() {
     setRunning(true);
@@ -83,26 +109,63 @@ export default function QuestionsSection({ projectId }: { projectId: string }) {
     load();
   }
 
-  // Group by topic, ordered by topic priority; within a topic order head→long
-  // then by priority_score desc (general→specific).
-  const byTopic = new Map<string | null, QuestionRow[]>();
-  for (const q of questions) {
-    const key = q.topic_id;
-    if (!byTopic.has(key)) byTopic.set(key, []);
-    byTopic.get(key)!.push(q);
-  }
-  for (const list of byTopic.values()) {
+  // Build groups by the active axis (section or topic). Each group keeps the
+  // general→specific order (head→long, then priority desc).
+  const sortQs = (list: QuestionRow[]) =>
     list.sort(
       (a, b) =>
         TIER_ORDER[a.tier] - TIER_ORDER[b.tier] || b.priority_score - a.priority_score
     );
-  }
+
   const topicName = (tid: string | null) =>
     tid ? topics.find((t) => t.id === tid)?.name ?? "Sin tópico" : "Sin tópico";
-  const orderedTopicIds = [
-    ...topics.sort((a, b) => b.priority - a.priority).map((t) => t.id),
-    null,
-  ].filter((tid) => byTopic.has(tid));
+  const pageById = (pid: string | null): PageLite | null =>
+    (pid ? pages.find((p) => p.id === pid) : null) ?? null;
+  const hasPlacements = questions.some((q) => q.placement_section);
+
+  interface Group {
+    key: string;
+    label: string;
+    page: PageLite | null;
+    items: QuestionRow[];
+  }
+  let groups: Group[] = [];
+
+  if (groupBy === "section") {
+    const map = new Map<string, QuestionRow[]>();
+    for (const q of questions) {
+      const key = q.placement_section || "Sin asignar";
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(q);
+    }
+    groups = Array.from(map.entries())
+      .map(([label, items]) => ({
+        key: label,
+        label,
+        page: pageById(items.find((q) => q.placement_page_id)?.placement_page_id ?? null),
+        items: sortQs(items),
+      }))
+      // "Sin asignar" last; otherwise by size desc.
+      .sort((a, b) =>
+        a.label === "Sin asignar" ? 1 : b.label === "Sin asignar" ? -1 : b.items.length - a.items.length
+      );
+  } else {
+    const map = new Map<string | null, QuestionRow[]>();
+    for (const q of questions) {
+      if (!map.has(q.topic_id)) map.set(q.topic_id, []);
+      map.get(q.topic_id)!.push(q);
+    }
+    const orderedTopicIds = [
+      ...[...topics].sort((a, b) => b.priority - a.priority).map((t) => t.id),
+      null,
+    ].filter((tid) => map.has(tid));
+    groups = orderedTopicIds.map((tid) => ({
+      key: tid ?? "none",
+      label: topicName(tid),
+      page: null,
+      items: sortQs(map.get(tid)!),
+    }));
+  }
 
   return (
     <div className="space-y-4">
@@ -113,14 +176,42 @@ export default function QuestionsSection({ projectId }: { projectId: string }) {
             Embudo multi-fuente: seeds + búsqueda web + contenido. Sin inventar long-tail.
           </p>
         </div>
-        <button
-          onClick={discover}
-          disabled={running}
-          className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
-        >
-          {running ? "Descubriendo…" : questions.length ? "Re-descubrir" : "Descubrir preguntas"}
-        </button>
+        <div className="flex items-center gap-2">
+          {questions.length > 0 && (
+            <button
+              onClick={assignSections}
+              disabled={placing}
+              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50"
+            >
+              {placing ? "Asignando…" : hasPlacements ? "Re-asignar secciones" : "Asignar a secciones"}
+            </button>
+          )}
+          <button
+            onClick={discover}
+            disabled={running}
+            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          >
+            {running ? "Descubriendo…" : questions.length ? "Re-descubrir" : "Descubrir preguntas"}
+          </button>
+        </div>
       </div>
+
+      {questions.length > 0 && (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="text-zinc-500">Agrupar por:</span>
+          {(["section", "topic"] as const).map((g) => (
+            <button
+              key={g}
+              onClick={() => setGroupBy(g)}
+              className={`rounded-full px-3 py-1 ${
+                groupBy === g ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-600"
+              }`}
+            >
+              {g === "section" ? "Sección del sitio" : "Tópico"}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && (
         <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
@@ -134,13 +225,43 @@ export default function QuestionsSection({ projectId }: { projectId: string }) {
         </p>
       ) : (
         <div className="space-y-5">
-          {orderedTopicIds.map((tid) => (
-            <div key={tid ?? "none"}>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                {topicName(tid)} <span className="text-zinc-400">({byTopic.get(tid)!.length})</span>
-              </h4>
+          {groupBy === "section" && !hasPlacements && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              Todavía no asignaste las preguntas a secciones del sitio. Hacé clic en
+              “Asignar a secciones” para mapear cada FAQ a su página (Home, Contacto,
+              cada servicio/producto), apuntando a 5–10 por sección.
+            </div>
+          )}
+          {groups.map((grp) => {
+            const n = grp.items.length;
+            // 5–10 per relevant section is the target; flag out-of-range.
+            const inRange = n >= 5 && n <= 10;
+            const countClass =
+              groupBy === "section" && grp.label !== "Sin asignar"
+                ? inRange
+                  ? "text-green-600"
+                  : "text-amber-600"
+                : "text-zinc-400";
+            return (
+            <div key={grp.key}>
+              <div className="mb-2 flex items-center gap-2">
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  {grp.label}
+                </h4>
+                <span className={`text-xs font-medium ${countClass}`}>({n})</span>
+                {grp.page && (
+                  <a
+                    href={grp.page.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="truncate text-[11px] text-zinc-400 hover:underline"
+                  >
+                    {grp.page.url}
+                  </a>
+                )}
+              </div>
               <ul className="divide-y divide-zinc-100 overflow-hidden rounded-lg border border-zinc-200 bg-white">
-                {byTopic.get(tid)!.map((q) => (
+                {grp.items.map((q) => (
                   <li key={q.id} className="px-4 py-3">
                     {editing === q.id ? (
                       <div className="flex items-center gap-2">
@@ -163,6 +284,14 @@ export default function QuestionsSection({ projectId }: { projectId: string }) {
                       <div className="flex items-start justify-between gap-3">
                         <p className="text-sm text-zinc-800">{q.text}</p>
                         <div className="flex shrink-0 items-center gap-1.5">
+                          {groupBy === "topic" && q.placement_section && (
+                            <span
+                              className="rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700"
+                              title="sección destino"
+                            >
+                              📍 {q.placement_section}
+                            </span>
+                          )}
                           <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${TIER_BADGE[q.tier]}`}>
                             {q.tier}
                           </span>
@@ -197,7 +326,8 @@ export default function QuestionsSection({ projectId }: { projectId: string }) {
                 ))}
               </ul>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

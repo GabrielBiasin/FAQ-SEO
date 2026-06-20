@@ -2,6 +2,7 @@ import { createServiceClient } from "@/lib/supabase";
 import { researchDemand } from "@/lib/ai/demand";
 import { synthesizeQuestions, type CandidateQuestion } from "@/lib/ai/questions";
 import { gatherSerpSignals } from "@/lib/serp";
+import { enqueueJob } from "@/lib/jobs";
 import type { JobContext } from "../index";
 import type { Json } from "@/types/database";
 
@@ -83,6 +84,11 @@ export async function handleDiscoverQuestions(ctx: JobContext): Promise<Json> {
       }))
     );
     if (error) throw new Error(`discover_questions: insert ${error.message}`);
+  }
+
+  // Chain placement assignment so new questions get mapped to site sections.
+  if (synthesized.length > 0) {
+    await enqueueJob(ctx.projectId, "assign_placements", {});
   }
 
   return {

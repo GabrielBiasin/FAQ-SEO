@@ -8,6 +8,7 @@ import { handleVerifyAnswers } from "./handlers/verify-answers";
 import { handleBrandAudit } from "./handlers/brand-audit";
 import { handleRunEval } from "./handlers/run-eval";
 import { handleCitationCheck } from "./handlers/citation-check";
+import { handleAssignPlacements } from "./handlers/assign-placements";
 
 export interface JobContext {
   jobId: string;
@@ -30,6 +31,7 @@ const handlers: Partial<Record<JobType, JobHandler>> = {
   brand_audit: handleBrandAudit,
   run_eval: handleRunEval,
   citation_check: handleCitationCheck,
+  assign_placements: handleAssignPlacements,
 };
 
 export function registerHandler(type: JobType, handler: JobHandler) {

@@ -416,6 +416,8 @@ export type Database = {
           created_at: string
           id: string
           intent: Database["public"]["Enums"]["question_intent"]
+          placement_page_id: string | null
+          placement_section: string | null
           priority_score: number
           project_id: string
           source: string
@@ -428,6 +430,8 @@ export type Database = {
           created_at?: string
           id?: string
           intent?: Database["public"]["Enums"]["question_intent"]
+          placement_page_id?: string | null
+          placement_section?: string | null
           priority_score?: number
           project_id: string
           source?: string
@@ -440,6 +444,8 @@ export type Database = {
           created_at?: string
           id?: string
           intent?: Database["public"]["Enums"]["question_intent"]
+          placement_page_id?: string | null
+          placement_section?: string | null
           priority_score?: number
           project_id?: string
           source?: string
@@ -554,6 +560,7 @@ export type Database = {
         | "verify_answers"
         | "run_eval"
         | "citation_check"
+        | "assign_placements"
       project_status: "active" | "archived"
       question_intent:
         | "definitional"

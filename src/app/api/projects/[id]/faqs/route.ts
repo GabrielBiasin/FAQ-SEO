@@ -25,8 +25,19 @@ export async function GET(
 
   const [{ data: questions }, { data: pages }] = await Promise.all([
     questionIds.length
-      ? db.from("questions").select("id, text, tier, intent").in("id", questionIds)
-      : Promise.resolve({ data: [] as { id: string; text: string; tier: string; intent: string }[] }),
+      ? db
+          .from("questions")
+          .select("id, text, tier, intent, placement_section")
+          .in("id", questionIds)
+      : Promise.resolve({
+          data: [] as {
+            id: string;
+            text: string;
+            tier: string;
+            intent: string;
+            placement_section: string | null;
+          }[],
+        }),
     pageIds.length
       ? db.from("pages").select("id, url, title").in("id", pageIds)
       : Promise.resolve({ data: [] as { id: string; url: string; title: string | null }[] }),

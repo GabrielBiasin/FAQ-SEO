@@ -21,7 +21,16 @@ export async function GET(
     .select("id, name, priority")
     .eq("project_id", id);
 
-  return NextResponse.json({ questions: questions ?? [], topics: topics ?? [] });
+  const { data: pages } = await db
+    .from("pages")
+    .select("id, url, title")
+    .eq("project_id", id);
+
+  return NextResponse.json({
+    questions: questions ?? [],
+    topics: topics ?? [],
+    pages: pages ?? [],
+  });
 }
 
 // POST — either launch discovery ({ action: "discover" }) or add one question
@@ -45,6 +54,21 @@ export async function POST(
       );
     }
     const job = await enqueueJob(id, "discover_questions", {});
+    return NextResponse.json({ job }, { status: 201 });
+  }
+
+  if (body?.action === "assign_placements") {
+    const { count } = await db
+      .from("questions")
+      .select("id", { count: "exact", head: true })
+      .eq("project_id", id);
+    if (!count) {
+      return NextResponse.json(
+        { error: "No hay preguntas. Corré el descubrimiento primero." },
+        { status: 400 }
+      );
+    }
+    const job = await enqueueJob(id, "assign_placements", {});
     return NextResponse.json({ job }, { status: 201 });
   }
 

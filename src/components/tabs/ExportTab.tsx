@@ -6,7 +6,7 @@ import { apiGet } from "@/lib/api";
 interface ApprovedFaq {
   id: string;
   answer_text: string;
-  question: { text: string } | null;
+  question: { text: string; placement_section: string | null } | null;
 }
 
 export default function ExportTab({ projectId }: { projectId: string }) {
@@ -60,17 +60,36 @@ export default function ExportTab({ projectId }: { projectId: string }) {
 
       {approved.length > 0 && (
         <div>
-          <h4 className="mb-2 text-sm font-semibold text-zinc-700">Vista previa</h4>
-          <ul className="space-y-2">
-            {approved.map((f) => (
-              <li key={f.id} className="rounded-lg border border-zinc-200 bg-white p-3">
-                <p className="text-sm font-medium text-zinc-900">{f.question?.text}</p>
-                <p className="mt-1 text-sm text-zinc-600">{f.answer_text}</p>
-              </li>
-            ))}
-          </ul>
+          <h4 className="mb-2 text-sm font-semibold text-zinc-700">
+            Vista previa <span className="font-normal text-zinc-400">(agrupada por sección destino)</span>
+          </h4>
+          {groupBySection(approved).map(([section, faqs]) => (
+            <div key={section} className="mb-4">
+              <h5 className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                {section} <span className="text-zinc-400">({faqs.length})</span>
+              </h5>
+              <ul className="space-y-2">
+                {faqs.map((f) => (
+                  <li key={f.id} className="rounded-lg border border-zinc-200 bg-white p-3">
+                    <p className="text-sm font-medium text-zinc-900">{f.question?.text}</p>
+                    <p className="mt-1 text-sm text-zinc-600">{f.answer_text}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
+}
+
+function groupBySection(faqs: ApprovedFaq[]): [string, ApprovedFaq[]][] {
+  const map = new Map<string, ApprovedFaq[]>();
+  for (const f of faqs) {
+    const key = f.question?.placement_section || "Sin asignar";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(f);
+  }
+  return Array.from(map.entries());
 }

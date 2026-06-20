@@ -25,23 +25,49 @@ export async function GET(
   );
   const [{ data: questions }, { data: pages }] = await Promise.all([
     questionIds.length
-      ? db.from("questions").select("id, text").in("id", questionIds)
-      : Promise.resolve({ data: [] as { id: string; text: string }[] }),
+      ? db
+          .from("questions")
+          .select("id, text, placement_section, placement_page_id")
+          .in("id", questionIds)
+      : Promise.resolve({
+          data: [] as {
+            id: string;
+            text: string;
+            placement_section: string | null;
+            placement_page_id: string | null;
+          }[],
+        }),
     pageIds.length
       ? db.from("pages").select("id, url").in("id", pageIds)
       : Promise.resolve({ data: [] as { id: string; url: string }[] }),
   ]);
-  const qMap = new Map((questions ?? []).map((q) => [q.id, q.text]));
+  const qMap = new Map((questions ?? []).map((q) => [q.id, q]));
   const pMap = new Map((pages ?? []).map((p) => [p.id, p.url]));
 
-  const items = (faqs ?? []).map((f) => ({
-    question: qMap.get(f.question_id) ?? "",
-    answer: f.answer_text,
-    source: f.source_page_id ? pMap.get(f.source_page_id) ?? null : null,
-  }));
+  const items = (faqs ?? []).map((f) => {
+    const q = qMap.get(f.question_id);
+    return {
+      question: q?.text ?? "",
+      answer: f.answer_text,
+      source: f.source_page_id ? pMap.get(f.source_page_id) ?? null : null,
+      section: q?.placement_section ?? "Sin asignar",
+    };
+  });
+
+  // Group items by their target section for placement-aware exports.
+  const bySection = new Map<string, typeof items>();
+  for (const it of items) {
+    if (!bySection.has(it.section)) bySection.set(it.section, []);
+    bySection.get(it.section)!.push(it);
+  }
+  const sections = Array.from(bySection.entries());
 
   if (format === "json") {
-    return new NextResponse(JSON.stringify({ faqs: items }, null, 2), {
+    const grouped = sections.map(([section, faqs]) => ({
+      section,
+      faqs: faqs.map(({ question, answer, source }) => ({ question, answer, source })),
+    }));
+    return new NextResponse(JSON.stringify({ sections: grouped }, null, 2), {
       headers: {
         "Content-Type": "application/json",
         "Content-Disposition": `attachment; filename="faqs-${id}.json"`,
@@ -50,16 +76,20 @@ export async function GET(
   }
 
   if (format === "md") {
-    const md =
-      "# FAQs\n\n" +
-      items
-        .map(
-          (it) =>
-            `## ${it.question}\n\n${it.answer}${
-              it.source ? `\n\n_Fuente: ${it.source}_` : ""
-            }`
-        )
-        .join("\n\n");
+    const md = sections
+      .map(
+        ([section, faqs]) =>
+          `# ${section}\n\n` +
+          faqs
+            .map(
+              (it) =>
+                `## ${it.question}\n\n${it.answer}${
+                  it.source ? `\n\n_Fuente: ${it.source}_` : ""
+                }`
+            )
+            .join("\n\n")
+      )
+      .join("\n\n---\n\n");
     return new NextResponse(md, {
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
@@ -69,8 +99,12 @@ export async function GET(
   }
 
   // txt
-  const txt = items
-    .map((it) => `P: ${it.question}\nR: ${it.answer}`)
+  const txt = sections
+    .map(
+      ([section, faqs]) =>
+        `=== ${section} ===\n\n` +
+        faqs.map((it) => `P: ${it.question}\nR: ${it.answer}`).join("\n\n")
+    )
     .join("\n\n");
   return new NextResponse(txt, {
     headers: {
