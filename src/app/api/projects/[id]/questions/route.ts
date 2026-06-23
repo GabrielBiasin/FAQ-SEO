@@ -26,10 +26,17 @@ export async function GET(
     .select("id, url, title")
     .eq("project_id", id);
 
+  const { data: sections } = await db
+    .from("sections")
+    .select("id, name, section_type, min_faqs, target_faqs, weight, is_priority")
+    .eq("project_id", id)
+    .order("weight", { ascending: false });
+
   return NextResponse.json({
     questions: questions ?? [],
     topics: topics ?? [],
     pages: pages ?? [],
+    sections: sections ?? [],
   });
 }
 

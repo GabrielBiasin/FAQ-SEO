@@ -7,7 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
@@ -283,6 +282,53 @@ export type Database = {
           },
         ]
       }
+      intent_templates: {
+        Row: {
+          created_at: string
+          default_min: number
+          default_target: number
+          id: string
+          intent_brief: string
+          is_system: boolean
+          key: string
+          name: string
+          project_id: string | null
+          section_type: Database["public"]["Enums"]["section_type"]
+        }
+        Insert: {
+          created_at?: string
+          default_min?: number
+          default_target?: number
+          id?: string
+          intent_brief: string
+          is_system?: boolean
+          key: string
+          name: string
+          project_id?: string | null
+          section_type: Database["public"]["Enums"]["section_type"]
+        }
+        Update: {
+          created_at?: string
+          default_min?: number
+          default_target?: number
+          id?: string
+          intent_brief?: string
+          is_system?: boolean
+          key?: string
+          name?: string
+          project_id?: string | null
+          section_type?: Database["public"]["Enums"]["section_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "intent_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       jobs: {
         Row: {
           attempts: number
@@ -420,6 +466,8 @@ export type Database = {
           placement_section: string | null
           priority_score: number
           project_id: string
+          question_class: Database["public"]["Enums"]["question_class"]
+          section_id: string | null
           source: string
           status: string
           text: string
@@ -434,6 +482,8 @@ export type Database = {
           placement_section?: string | null
           priority_score?: number
           project_id: string
+          question_class?: Database["public"]["Enums"]["question_class"]
+          section_id?: string | null
           source?: string
           status?: string
           text: string
@@ -448,6 +498,8 @@ export type Database = {
           placement_section?: string | null
           priority_score?: number
           project_id?: string
+          question_class?: Database["public"]["Enums"]["question_class"]
+          section_id?: string | null
           source?: string
           status?: string
           text?: string
@@ -456,6 +508,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "questions_placement_page_id_fkey"
+            columns: ["placement_page_id"]
+            isOneToOne: false
+            referencedRelation: "pages"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "questions_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -463,10 +522,83 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "questions_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "sections"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "questions_topic_id_fkey"
             columns: ["topic_id"]
             isOneToOne: false
             referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sections: {
+        Row: {
+          created_at: string
+          id: string
+          intent_override: string | null
+          intent_template_id: string | null
+          is_priority: boolean
+          min_faqs: number
+          name: string
+          project_id: string
+          section_type: Database["public"]["Enums"]["section_type"]
+          status: string
+          suggested_type: Database["public"]["Enums"]["section_type"] | null
+          target_faqs: number
+          urls: Json
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          intent_override?: string | null
+          intent_template_id?: string | null
+          is_priority?: boolean
+          min_faqs?: number
+          name: string
+          project_id: string
+          section_type?: Database["public"]["Enums"]["section_type"]
+          status?: string
+          suggested_type?: Database["public"]["Enums"]["section_type"] | null
+          target_faqs?: number
+          urls?: Json
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          intent_override?: string | null
+          intent_template_id?: string | null
+          is_priority?: boolean
+          min_faqs?: number
+          name?: string
+          project_id?: string
+          section_type?: Database["public"]["Enums"]["section_type"]
+          status?: string
+          suggested_type?: Database["public"]["Enums"]["section_type"] | null
+          target_faqs?: number
+          urls?: Json
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sections_intent_template_id_fkey"
+            columns: ["intent_template_id"]
+            isOneToOne: false
+            referencedRelation: "intent_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -561,7 +693,9 @@ export type Database = {
         | "run_eval"
         | "citation_check"
         | "assign_placements"
+        | "expand_section"
       project_status: "active" | "archived"
+      question_class: "demand" | "coverage"
       question_intent:
         | "definitional"
         | "process"
@@ -570,6 +704,13 @@ export type Database = {
         | "product"
       question_tier: "head" | "mid" | "long"
       run_status: "queued" | "running" | "done" | "error"
+      section_type:
+        | "home"
+        | "about_trust"
+        | "differentiation"
+        | "transactional"
+        | "product"
+        | "other"
       seed_source:
         | "sales"
         | "support"
@@ -598,8 +739,10 @@ export type JobType = DbEnums["job_type"];
 export type SeedSource = DbEnums["seed_source"];
 export type QuestionTier = DbEnums["question_tier"];
 export type QuestionIntent = DbEnums["question_intent"];
+export type QuestionClass = DbEnums["question_class"];
 export type FaqStatus = DbEnums["faq_status"];
 export type CitationEngine = DbEnums["citation_engine"];
+export type SectionType = DbEnums["section_type"];
 
 type DbTables = Database["public"]["Tables"];
 export type ProjectRow = DbTables["projects"]["Row"];
@@ -614,3 +757,5 @@ export type JobRow = DbTables["jobs"]["Row"];
 export type GoldenFaqRow = DbTables["golden_faqs"]["Row"];
 export type EvalRow = DbTables["evals"]["Row"];
 export type CitationCheckRow = DbTables["citation_checks"]["Row"];
+export type SectionRow = DbTables["sections"]["Row"];
+export type IntentTemplateRow = DbTables["intent_templates"]["Row"];
