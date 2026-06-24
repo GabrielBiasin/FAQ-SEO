@@ -24,6 +24,7 @@ export default function ExportTab({ projectId }: { projectId: string }) {
   }, [load]);
 
   const formats: { ext: string; label: string }[] = [
+    { ext: "xlsx", label: "Excel" },
     { ext: "md", label: "Markdown" },
     { ext: "json", label: "JSON" },
     { ext: "txt", label: "Texto" },

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase";
 
-// GET /api/projects/:id/export?format=json|md|txt
+// GET /api/projects/:id/export?format=json|md|txt|xlsx
 // Exports ONLY approved FAQs (human-reviewed) — nothing else leaves the tool.
 export async function GET(
   req: NextRequest,
@@ -94,6 +94,42 @@ export async function GET(
       headers: {
         "Content-Type": "text/markdown; charset=utf-8",
         "Content-Disposition": `attachment; filename="faqs-${id}.md"`,
+      },
+    });
+  }
+
+  if (format === "xlsx") {
+    // Dynamic import keeps exceljs out of the route's module graph at load.
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "FAQ AEO Tool";
+    const ws = wb.addWorksheet("FAQs");
+    ws.columns = [
+      { header: "Sección", key: "section", width: 28 },
+      { header: "Pregunta", key: "question", width: 50 },
+      { header: "Respuesta", key: "answer", width: 90 },
+      { header: "Fuente", key: "source", width: 40 },
+    ];
+    ws.getRow(1).font = { bold: true };
+    for (const [section, faqs] of sections) {
+      for (const it of faqs) {
+        ws.addRow({
+          section,
+          question: it.question,
+          answer: it.answer,
+          source: it.source ?? "",
+        });
+      }
+    }
+    ws.eachRow((row) => {
+      row.alignment = { vertical: "top", wrapText: true };
+    });
+    const buffer = await wb.xlsx.writeBuffer();
+    return new NextResponse(buffer as ArrayBuffer, {
+      headers: {
+        "Content-Type":
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "Content-Disposition": `attachment; filename="faqs-${id}.xlsx"`,
       },
     });
   }

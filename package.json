@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.105.0",
     "@mozilla/readability": "^0.6.0",
     "@supabase/supabase-js": "^2.108.2",
+    "exceljs": "^4.4.0",
     "linkedom": "^0.18.12",
     "lucide-react": "^1.21.0",
     "next": "16.2.9",
