@@ -9,14 +9,18 @@ export async function GET(
 ) {
   const { id } = await params;
   const format = (req.nextUrl.searchParams.get("format") || "json").toLowerCase();
+  // scope=all (default): everything except rejected. scope=approved: approved only.
+  const scope = (req.nextUrl.searchParams.get("scope") || "all").toLowerCase();
   const db = createServiceClient();
 
-  const { data: faqs, error } = await db
+  let query = db
     .from("faqs")
-    .select("question_id, answer_text, source_page_id")
+    .select("question_id, answer_text, source_page_id, status, confidence")
     .eq("project_id", id)
-    .eq("status", "approved")
     .order("created_at", { ascending: true });
+  query = scope === "approved" ? query.eq("status", "approved") : query.neq("status", "rejected");
+
+  const { data: faqs, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const questionIds = Array.from(new Set((faqs ?? []).map((f) => f.question_id)));
@@ -38,13 +42,27 @@ export async function GET(
   const pMap = new Map((pages ?? []).map((p) => [p.id, p.url]));
   const sectionName = new Map((sectionRows ?? []).map((s) => [s.id, s.name]));
 
+  // A FAQ lacks sufficient content when it has no grounding source or no answer.
+  // We still export the question so the client can complete it.
+  const INSUFFICIENT =
+    "⚠️ El contenido del sitio no es suficiente para responder esta pregunta — a completar por el cliente.";
+  const STATUS_LABEL: Record<string, string> = {
+    draft: "Borrador",
+    needs_review: "Revisar",
+    approved: "Aprobada",
+    rejected: "Rechazada",
+  };
+
   const items = (faqs ?? []).map((f) => {
     const q = qMap.get(f.question_id);
+    const insufficient = !f.answer_text.trim() || !f.source_page_id;
     return {
       question: q?.text ?? "",
-      answer: f.answer_text,
+      answer: insufficient ? INSUFFICIENT : f.answer_text,
       source: f.source_page_id ? pMap.get(f.source_page_id) ?? null : null,
       section: (q?.section_id && sectionName.get(q.section_id)) || "Sin asignar",
+      status: STATUS_LABEL[f.status] ?? f.status,
+      insufficient,
     };
   });
 
@@ -59,7 +77,13 @@ export async function GET(
   if (format === "json") {
     const grouped = sections.map(([section, faqs]) => ({
       section,
-      faqs: faqs.map(({ question, answer, source }) => ({ question, answer, source })),
+      faqs: faqs.map(({ question, answer, source, status, insufficient }) => ({
+        question,
+        answer,
+        source,
+        status,
+        insufficient,
+      })),
     }));
     return new NextResponse(JSON.stringify({ sections: grouped }, null, 2), {
       headers: {
@@ -77,9 +101,9 @@ export async function GET(
           faqs
             .map(
               (it) =>
-                `## ${it.question}\n\n${it.answer}${
-                  it.source ? `\n\n_Fuente: ${it.source}_` : ""
-                }`
+                `## ${it.question}\n\n${it.answer}\n\n_Estado: ${it.status}${
+                  it.source ? ` · Fuente: ${it.source}` : ""
+                }_`
             )
             .join("\n\n")
       )
@@ -99,20 +123,34 @@ export async function GET(
     wb.creator = "FAQ AEO Tool";
     const ws = wb.addWorksheet("FAQs");
     ws.columns = [
-      { header: "Sección", key: "section", width: 28 },
-      { header: "Pregunta", key: "question", width: 50 },
-      { header: "Respuesta", key: "answer", width: 90 },
-      { header: "Fuente", key: "source", width: 40 },
+      { header: "Sección", key: "section", width: 26 },
+      { header: "Pregunta", key: "question", width: 48 },
+      { header: "Respuesta", key: "answer", width: 80 },
+      { header: "Estado", key: "status", width: 14 },
+      { header: "Completar cliente", key: "todo", width: 16 },
+      { header: "Fuente", key: "source", width: 38 },
     ];
     ws.getRow(1).font = { bold: true };
     for (const [section, faqs] of sections) {
       for (const it of faqs) {
-        ws.addRow({
+        const row = ws.addRow({
           section,
           question: it.question,
           answer: it.answer,
+          status: it.status,
+          todo: it.insufficient ? "SÍ" : "",
           source: it.source ?? "",
         });
+        // Highlight rows that need the client to complete the answer.
+        if (it.insufficient) {
+          row.eachCell((cell) => {
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FFFFF3CD" }, // soft amber
+            };
+          });
+        }
       }
     }
     ws.eachRow((row) => {
@@ -133,7 +171,9 @@ export async function GET(
     .map(
       ([section, faqs]) =>
         `=== ${section} ===\n\n` +
-        faqs.map((it) => `P: ${it.question}\nR: ${it.answer}`).join("\n\n")
+        faqs
+          .map((it) => `P: ${it.question}\nR: ${it.answer}\n[${it.status}]`)
+          .join("\n\n")
     )
     .join("\n\n");
   return new NextResponse(txt, {
