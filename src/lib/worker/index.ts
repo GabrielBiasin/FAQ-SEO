@@ -75,9 +75,16 @@ export async function processNextJob(
 /**
  * Drain the queue: keep processing until nothing is left or a cap is hit.
  */
+// Stop claiming new jobs after this budget so the serverless invocation
+// finishes well within the platform timeout. Remaining queued jobs (including
+// batch continuations) are picked up by the next poke/cron.
+const DRAIN_BUDGET_MS = 45 * 1000;
+
 export async function drainQueue(projectId?: string, maxJobs = 25) {
   const results = [];
+  const deadline = Date.now() + DRAIN_BUDGET_MS;
   for (let i = 0; i < maxJobs; i++) {
+    if (Date.now() > deadline) break;
     const r = await processNextJob(projectId);
     if (!r.ran) break;
     results.push(r);

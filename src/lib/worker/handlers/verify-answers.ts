@@ -1,33 +1,38 @@
 import { createServiceClient } from "@/lib/supabase";
 import { verifyAnswer } from "@/lib/ai/verify";
+import { enqueueJob } from "@/lib/jobs";
 import type { JobContext } from "../index";
 import type { Json } from "@/types/database";
 
 // Answers below this confidence (or with unsupported claims) need human review.
 const CONFIDENCE_THRESHOLD = 0.8;
+// FAQs verified per invocation; the rest continues in a follow-up job.
+const BATCH = 6;
 
 /**
- * verify_answers handler.
- * For each FAQ, checks the answer claim-by-claim against its source page's
- * clean_text. Unsupported claims and low confidence flip status to
- * needs_review; otherwise the draft is left as draft (ready for approval).
+ * verify_answers handler (batched).
+ * Verifies un-verified FAQs (confidence is null) a few per run against their
+ * source page, re-enqueuing itself until none remain. Keeps each invocation
+ * short and crash-safe. Unsupported claims / low confidence → needs_review.
  *
- * Payload: { faq_ids?: string[] } to scope; otherwise all draft/needs_review.
+ * Payload: { faq_ids?: string[] } to scope; otherwise all unverified.
  */
 export async function handleVerifyAnswers(ctx: JobContext): Promise<Json> {
   const db = createServiceClient();
   const payload = (ctx.payload ?? {}) as { faq_ids?: string[] };
 
+  // Only FAQs not yet verified (confidence null) and not approved/rejected.
   let q = db
     .from("faqs")
-    .select("id, answer_text, source_page_id, status")
-    .eq("project_id", ctx.projectId);
+    .select("id, answer_text, source_page_id")
+    .eq("project_id", ctx.projectId)
+    .is("confidence", null)
+    .in("status", ["draft", "needs_review"]);
   if (payload.faq_ids?.length) q = q.in("id", payload.faq_ids);
-  else q = q.in("status", ["draft", "needs_review"]);
 
-  const { data: faqs, error } = await q;
+  const { data: faqs, error } = await q.limit(BATCH);
   if (error) throw new Error(`verify_answers: ${error.message}`);
-  if (!faqs || faqs.length === 0) return { verified: 0 } as Json;
+  if (!faqs || faqs.length === 0) return { verified: 0, remaining: 0 } as Json;
 
   let flagged = 0;
   let verified = 0;
@@ -62,13 +67,19 @@ export async function handleVerifyAnswers(ctx: JobContext): Promise<Json> {
       .update({
         confidence: result.confidence,
         unsupported_claims: result.unsupported_claims as unknown as Json,
-        // Don't downgrade an already-approved FAQ; only set draft/needs_review.
         status: needsReview ? "needs_review" : "draft",
       })
       .eq("id", faq.id);
 
     if (needsReview) flagged++;
     verified++;
+  }
+
+  // If we filled the batch there are probably more — continue.
+  if (faqs.length === BATCH) {
+    await enqueueJob(ctx.projectId, "verify_answers", {
+      faq_ids: payload.faq_ids ?? undefined,
+    });
   }
 
   return { verified, flagged } as Json;

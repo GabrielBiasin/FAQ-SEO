@@ -48,11 +48,35 @@ export default function FaqsTab({ projectId }: { projectId: string }) {
     load();
   }, [load]);
 
+  // While generating, keep poking the worker so batch continuations (each a
+  // short job) drain, and stop once the queue has no active gen/verify jobs.
   useEffect(() => {
     if (!running) return;
-    const t = setInterval(load, 4000);
-    return () => clearInterval(t);
-  }, [running, load]);
+    let alive = true;
+    const tick = async () => {
+      if (!alive) return;
+      await load();
+      try {
+        const { jobs } = await apiGet<{
+          jobs: { type: string; status: string }[];
+        }>(`/api/jobs?project_id=${projectId}`);
+        const active = jobs.some(
+          (j) =>
+            (j.type === "generate_answers" || j.type === "verify_answers") &&
+            (j.status === "queued" || j.status === "running")
+        );
+        if (active) pokeWorker(projectId);
+        else setRunning(false);
+      } catch {
+        /* keep polling */
+      }
+    };
+    const t = setInterval(tick, 4000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [running, load, projectId]);
 
   async function generate() {
     setRunning(true);
@@ -60,7 +84,8 @@ export default function FaqsTab({ projectId }: { projectId: string }) {
     try {
       await apiPost(`/api/projects/${projectId}/faqs`, { action: "generate" });
       pokeWorker(projectId);
-      setTimeout(() => setRunning(false), 120000);
+      // Safety net: stop the spinner even if polling misses the end.
+      setTimeout(() => setRunning(false), 600000);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error");
       setRunning(false);

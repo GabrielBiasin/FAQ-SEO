@@ -37,26 +37,41 @@ export async function enqueueJob(
  * with concurrent workers, replace with a SELECT ... FOR UPDATE SKIP LOCKED
  * RPC to avoid double-claiming.
  */
+// A "running" job older than this is treated as orphaned (its serverless
+// invocation timed out) and may be reclaimed.
+const STALE_RUNNING_MS = 3 * 60 * 1000;
+
 export async function claimNextJob(projectId?: string) {
   const db = createServiceClient();
-  let q = db
-    .from("jobs")
-    .select("*")
-    .eq("status", "queued")
-    .order("created_at", { ascending: true })
-    .limit(1);
-  if (projectId) q = q.eq("project_id", projectId);
 
-  const { data: jobs, error } = await q;
-  if (error) throw new Error(`claimNextJob failed: ${error.message}`);
-  const job = jobs?.[0];
+  // Prefer the oldest queued job; if none, reclaim a stale "running" one.
+  const pick = async (status: "queued" | "running", staleBefore?: string) => {
+    let q = db
+      .from("jobs")
+      .select("*")
+      .eq("status", status)
+      .order("created_at", { ascending: true })
+      .limit(1);
+    if (projectId) q = q.eq("project_id", projectId);
+    if (staleBefore) q = q.lt("created_at", staleBefore);
+    const { data, error } = await q;
+    if (error) throw new Error(`claimNextJob failed: ${error.message}`);
+    return data?.[0] ?? null;
+  };
+
+  let job = await pick("queued");
+  let fromStatus: "queued" | "running" = "queued";
+  if (!job) {
+    job = await pick("running", new Date(Date.now() - STALE_RUNNING_MS).toISOString());
+    fromStatus = "running";
+  }
   if (!job) return null;
 
   const { data: claimed, error: upErr } = await db
     .from("jobs")
     .update({ status: "running", attempts: job.attempts + 1 })
     .eq("id", job.id)
-    .eq("status", "queued") // optimistic guard against double-claim
+    .eq("status", fromStatus) // optimistic guard against double-claim
     .select()
     .single();
   if (upErr) {
