@@ -23,11 +23,11 @@ export async function GET(
     new Set((faqs ?? []).map((f) => f.source_page_id).filter(Boolean) as string[])
   );
 
-  const [{ data: questions }, { data: pages }] = await Promise.all([
+  const [{ data: questions }, { data: pages }, { data: sectionRows }] = await Promise.all([
     questionIds.length
       ? db
           .from("questions")
-          .select("id, text, tier, intent, placement_section")
+          .select("id, text, tier, intent, section_id, question_class")
           .in("id", questionIds)
       : Promise.resolve({
           data: [] as {
@@ -35,15 +35,23 @@ export async function GET(
             text: string;
             tier: string;
             intent: string;
-            placement_section: string | null;
+            section_id: string | null;
+            question_class: string;
           }[],
         }),
     pageIds.length
       ? db.from("pages").select("id, url, title").in("id", pageIds)
       : Promise.resolve({ data: [] as { id: string; url: string; title: string | null }[] }),
+    db.from("sections").select("id, name").eq("project_id", id),
   ]);
 
-  const qMap = new Map((questions ?? []).map((q) => [q.id, q]));
+  const sectionName = new Map((sectionRows ?? []).map((s) => [s.id, s.name]));
+  const qMap = new Map(
+    (questions ?? []).map((q) => [
+      q.id,
+      { ...q, placement_section: q.section_id ? sectionName.get(q.section_id) ?? null : null },
+    ])
+  );
   const pMap = new Map((pages ?? []).map((p) => [p.id, p]));
 
   const enriched = (faqs ?? []).map((f) => ({

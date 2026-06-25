@@ -23,26 +23,20 @@ export async function GET(
   const pageIds = Array.from(
     new Set((faqs ?? []).map((f) => f.source_page_id).filter(Boolean) as string[])
   );
-  const [{ data: questions }, { data: pages }] = await Promise.all([
+  const [{ data: questions }, { data: pages }, { data: sectionRows }] = await Promise.all([
     questionIds.length
-      ? db
-          .from("questions")
-          .select("id, text, placement_section, placement_page_id")
-          .in("id", questionIds)
+      ? db.from("questions").select("id, text, section_id").in("id", questionIds)
       : Promise.resolve({
-          data: [] as {
-            id: string;
-            text: string;
-            placement_section: string | null;
-            placement_page_id: string | null;
-          }[],
+          data: [] as { id: string; text: string; section_id: string | null }[],
         }),
     pageIds.length
       ? db.from("pages").select("id, url").in("id", pageIds)
       : Promise.resolve({ data: [] as { id: string; url: string }[] }),
+    db.from("sections").select("id, name").eq("project_id", id),
   ]);
   const qMap = new Map((questions ?? []).map((q) => [q.id, q]));
   const pMap = new Map((pages ?? []).map((p) => [p.id, p.url]));
+  const sectionName = new Map((sectionRows ?? []).map((s) => [s.id, s.name]));
 
   const items = (faqs ?? []).map((f) => {
     const q = qMap.get(f.question_id);
@@ -50,7 +44,7 @@ export async function GET(
       question: q?.text ?? "",
       answer: f.answer_text,
       source: f.source_page_id ? pMap.get(f.source_page_id) ?? null : null,
-      section: q?.placement_section ?? "Sin asignar",
+      section: (q?.section_id && sectionName.get(q.section_id)) || "Sin asignar",
     };
   });
 
