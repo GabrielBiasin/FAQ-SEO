@@ -100,8 +100,12 @@ export async function handleGenerateAnswers(ctx: JobContext): Promise<Json> {
       unsupported_claims: [],
       prompt_version: ANSWERS_PROMPT_VERSION,
     });
-    if (error) throw new Error(`generate_answers: insert ${error.message}`);
-    generated++;
+    // 23505 = unique violation: another concurrent invocation already created
+    // this question's FAQ. Safe to skip.
+    if (error && error.code !== "23505") {
+      throw new Error(`generate_answers: insert ${error.message}`);
+    }
+    if (!error) generated++;
   }
 
   const stillRemaining = remaining.length - batch.length;
