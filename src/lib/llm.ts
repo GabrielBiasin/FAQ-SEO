@@ -32,9 +32,15 @@ function anthropicClient(): Anthropic {
 let _google: GoogleGenAI | null = null;
 function googleClient(): GoogleGenAI {
   if (!_google) {
-    _google = new GoogleGenAI({
-      apiKey: process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY,
-    });
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "GOOGLE_API_KEY no está configurada. Cargala en las variables de entorno."
+      );
+    }
+    // vertexai:false forces the Gemini Developer API (API key) instead of
+    // falling back to Google Cloud application-default credentials.
+    _google = new GoogleGenAI({ apiKey, vertexai: false });
   }
   return _google;
 }
