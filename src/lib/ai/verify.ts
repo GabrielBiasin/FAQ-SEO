@@ -1,4 +1,4 @@
-import { anthropic, PRIMARY_MODEL, extractText, parseLooseJson } from "@/lib/claude";
+import { llmComplete, parseLooseJson } from "@/lib/claude";
 
 export const VERIFY_PROMPT_VERSION = "verify-v1.0.0";
 
@@ -35,19 +35,12 @@ export async function verifyAnswer(input: {
 }): Promise<VerificationResult> {
   const { answer, sourceText } = input;
 
-  const response = await anthropic.messages.create({
-    model: PRIMARY_MODEL,
-    max_tokens: 1500,
+  const text = await llmComplete({
     system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `## Respuesta a verificar\n${answer}\n\n## Contenido fuente\n${sourceText.slice(0, 6000)}`,
-      },
-    ],
+    user: `## Respuesta a verificar\n${answer}\n\n## Contenido fuente\n${sourceText.slice(0, 6000)}`,
+    maxTokens: 1500,
+    json: true,
   });
-
-  const text = extractText(response);
   const parsed = parseLooseJson<{
     claims?: { claim: string; verdict: Verdict }[];
     confidence?: number;

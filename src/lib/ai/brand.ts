@@ -1,4 +1,4 @@
-import { anthropic, PRIMARY_MODEL, extractText, parseLooseJson } from "@/lib/claude";
+import { llmComplete, parseLooseJson } from "@/lib/claude";
 
 export const BRAND_PROMPT_VERSION = "brand-v1.0.0";
 
@@ -52,22 +52,14 @@ export async function auditBrand(input: {
 }): Promise<BrandAuditResult> {
   const { name, domain, topicSummary } = input;
 
-  const response = await anthropic.messages.create({
-    model: PRIMARY_MODEL,
-    max_tokens: 3500,
+  const text = await llmComplete({
     system: SYSTEM_PROMPT,
-    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 6 }],
-    messages: [
-      {
-        role: "user",
-        content: `Marca: ${name}\nDominio: ${domain}\nQué hace: ${
-          topicSummary || "(no provisto)"
-        }\n\nInvestigá la presencia de esta marca en la web y devolvé el JSON.`,
-      },
-    ],
+    user: `Marca: ${name}\nDominio: ${domain}\nQué hace: ${
+      topicSummary || "(no provisto)"
+    }\n\nInvestigá la presencia de esta marca en la web y devolvé el JSON.`,
+    maxTokens: 3500,
+    webSearch: true,
   });
-
-  const text = extractText(response);
   const parsed = parseLooseJson<Partial<BrandAuditResult>>(text);
 
   const findings = (parsed.findings ?? [])

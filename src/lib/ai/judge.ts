@@ -1,7 +1,9 @@
-import { anthropic, PRIMARY_MODEL, extractText, parseLooseJson } from "@/lib/claude";
+import { llmComplete, parseLooseJson, PROVIDER } from "@/lib/claude";
 
 export const JUDGE_PROMPT_VERSION = "judge-v1.0.0";
-export const JUDGE_MODEL = PRIMARY_MODEL;
+// Recorded on each eval so scores stay attributable to the judge model.
+export const JUDGE_MODEL =
+  PROVIDER === "anthropic" ? "claude-opus-4-8" : "gemini-2.0-flash";
 
 // Rubric dimensions scored 1–5 by the judge.
 export const RUBRIC_DIMENSIONS = [
@@ -65,14 +67,12 @@ export async function judgeAnswer(input: {
   if (idealAnswer) parts.push(`## Respuesta ideal (golden)\n${idealAnswer}`);
   if (voiceGuide) parts.push(`## Guía de voz\n${voiceGuide}`);
 
-  const response = await anthropic.messages.create({
-    model: JUDGE_MODEL,
-    max_tokens: 800,
+  const text = await llmComplete({
     system: SYSTEM_PROMPT,
-    messages: [{ role: "user", content: parts.join("\n\n") }],
+    user: parts.join("\n\n"),
+    maxTokens: 800,
+    json: true,
   });
-
-  const text = extractText(response);
   const parsed = parseLooseJson<{ scores?: Partial<RubricScores>; rationale?: string }>(text);
 
   const scores = {} as RubricScores;

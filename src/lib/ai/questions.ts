@@ -1,4 +1,4 @@
-import { anthropic, PRIMARY_MODEL, extractText, parseLooseJson } from "@/lib/claude";
+import { llmComplete, parseLooseJson } from "@/lib/claude";
 import type { QuestionTier, QuestionIntent } from "@/types/database";
 
 export const QUESTIONS_PROMPT_VERSION = "questions-v1.2.0";
@@ -84,21 +84,14 @@ export async function synthesizeQuestions(input: {
     ? candidates.map((c) => `- [${c.source}] ${c.text}`).join("\n")
     : "(sin candidatas externas — derivá solo head/mid del contenido)";
 
-  const response = await anthropic.messages.create({
-    model: PRIMARY_MODEL,
-    max_tokens: 8000,
+  const text = await llmComplete({
     system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `## Tópicos del sitio\n${topicBlock}\n\n## Secciones del sitio\n${sectionBlock}\n\n## Preguntas candidatas (señales de demanda real)\n${candidateBlock}\n\n## Digest del contenido\n${buildDigest(
-          pages
-        )}`,
-      },
-    ],
+    user: `## Tópicos del sitio\n${topicBlock}\n\n## Secciones del sitio\n${sectionBlock}\n\n## Preguntas candidatas (señales de demanda real)\n${candidateBlock}\n\n## Digest del contenido\n${buildDigest(
+      pages
+    )}`,
+    maxTokens: 8000,
+    json: true,
   });
-
-  const text = extractText(response);
   // Tolerate a truncated response (model hit the token cap): if the JSON won't
   // parse whole, salvage the complete question objects from the array.
   let rawQuestions: SynthQuestion[];

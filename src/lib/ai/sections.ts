@@ -1,4 +1,4 @@
-import { anthropic, PRIMARY_MODEL, extractText, parseLooseJson } from "@/lib/claude";
+import { llmComplete, parseLooseJson } from "@/lib/claude";
 import type { SectionType } from "@/types/database";
 
 export const SECTIONS_PROMPT_VERSION = "sections-v1.0.0";
@@ -58,19 +58,12 @@ export async function detectSections(input: {
     .map((p) => `- ${p.url} | ${p.title || "(sin título)"}\n  ${p.summary}`)
     .join("\n");
 
-  const response = await anthropic.messages.create({
-    model: PRIMARY_MODEL,
-    max_tokens: 4000,
+  const text = await llmComplete({
     system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `Tema del sitio: ${topicSummary || "(no provisto)"}\n\n## Páginas\n${pageBlock}`,
-      },
-    ],
+    user: `Tema del sitio: ${topicSummary || "(no provisto)"}\n\n## Páginas\n${pageBlock}`,
+    maxTokens: 4000,
+    json: true,
   });
-
-  const text = extractText(response);
   const parsed = parseLooseJson<{ sections?: DetectedSection[] }>(text);
   return (parsed.sections ?? [])
     .filter((s) => s && typeof s.name === "string" && s.name.trim())

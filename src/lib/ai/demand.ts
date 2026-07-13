@@ -1,4 +1,4 @@
-import { anthropic, PRIMARY_MODEL, extractText, parseLooseJson } from "@/lib/claude";
+import { llmComplete, parseLooseJson } from "@/lib/claude";
 
 export const DEMAND_PROMPT_VERSION = "demand-v1.0.0";
 
@@ -31,28 +31,14 @@ export async function researchDemand(
   topicSummary: string,
   topicNames: string[]
 ): Promise<DemandQuestion[]> {
-  const response = await anthropic.messages.create({
-    model: PRIMARY_MODEL,
-    max_tokens: 3000,
+  const text = await llmComplete({
     system: SYSTEM_PROMPT,
-    tools: [
-      {
-        type: "web_search_20250305",
-        name: "web_search",
-        max_uses: 6,
-      },
-    ],
-    messages: [
-      {
-        role: "user",
-        content: `Tema del sitio: ${topicSummary}\n\nTópicos a investigar:\n${topicNames
-          .map((t) => `- ${t}`)
-          .join("\n")}\n\nBuscá preguntas reales que la gente hace sobre estos tópicos y devolvé el JSON.`,
-      },
-    ],
+    user: `Tema del sitio: ${topicSummary}\n\nTópicos a investigar:\n${topicNames
+      .map((t) => `- ${t}`)
+      .join("\n")}\n\nBuscá preguntas reales que la gente hace sobre estos tópicos y devolvé el JSON.`,
+    maxTokens: 3000,
+    webSearch: true,
   });
-
-  const text = extractText(response);
   if (!text.trim()) return [];
   try {
     const parsed = parseLooseJson<{ questions?: DemandQuestion[] }>(text);

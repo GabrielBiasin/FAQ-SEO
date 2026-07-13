@@ -1,4 +1,4 @@
-import { anthropic, PRIMARY_MODEL, extractText, parseLooseJson } from "@/lib/claude";
+import { llmComplete, parseLooseJson } from "@/lib/claude";
 
 export const PLACEMENT_PROMPT_VERSION = "placement-v1.1.0";
 
@@ -53,19 +53,12 @@ export async function assignPlacements(input: {
     .map((q) => `- id=${q.id} [${q.tier}/${q.intent}] ${q.text}`)
     .join("\n");
 
-  const response = await anthropic.messages.create({
-    model: PRIMARY_MODEL,
-    max_tokens: 6000,
+  const text = await llmComplete({
     system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `## Páginas del sitio (secciones candidatas)\n${pageBlock}\n\n## Preguntas a ubicar\n${qBlock}`,
-      },
-    ],
+    user: `## Páginas del sitio (secciones candidatas)\n${pageBlock}\n\n## Preguntas a ubicar\n${qBlock}`,
+    maxTokens: 6000,
+    json: true,
   });
-
-  const text = extractText(response);
   const validPageIds = new Set(pages.map((p) => p.id));
   const validQIds = new Set(questions.map((q) => q.id));
 

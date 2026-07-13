@@ -1,4 +1,4 @@
-import { anthropic, PRIMARY_MODEL, extractText, parseLooseJson } from "@/lib/claude";
+import { llmComplete, parseLooseJson } from "@/lib/claude";
 import type { QuestionTier, QuestionIntent } from "@/types/database";
 
 export const COVERAGE_PROMPT_VERSION = "coverage-v1.0.0";
@@ -55,21 +55,14 @@ export async function generateCoverageQuestions(input: {
     ? existingQuestions.map((q) => `- ${q}`).join("\n")
     : "(ninguna)";
 
-  const response = await anthropic.messages.create({
-    model: PRIMARY_MODEL,
-    max_tokens: 2500,
+  const text = await llmComplete({
     system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `## Sección\n${sectionName} (tipo: ${sectionType})\n\n## Brief de intención de la sección\n${intentBrief}${
-          extraIntent ? `\n\n## Intención adicional puntual\n${extraIntent}` : ""
-        }\n\n## Preguntas ya existentes (NO repetir)\n${existingBlock}\n\n## Contenido fuente (info real de la empresa)\n${content}\n\nGenerá hasta ${needed} preguntas nuevas de cobertura para esta sección.`,
-      },
-    ],
+    user: `## Sección\n${sectionName} (tipo: ${sectionType})\n\n## Brief de intención de la sección\n${intentBrief}${
+      extraIntent ? `\n\n## Intención adicional puntual\n${extraIntent}` : ""
+    }\n\n## Preguntas ya existentes (NO repetir)\n${existingBlock}\n\n## Contenido fuente (info real de la empresa)\n${content}\n\nGenerá hasta ${needed} preguntas nuevas de cobertura para esta sección.`,
+    maxTokens: 2500,
+    json: true,
   });
-
-  const text = extractText(response);
   let parsed: { questions?: CoverageQuestion[] };
   try {
     parsed = parseLooseJson<{ questions?: CoverageQuestion[] }>(text);

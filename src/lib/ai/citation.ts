@@ -1,4 +1,4 @@
-import { anthropic, PRIMARY_MODEL, extractText, parseLooseJson } from "@/lib/claude";
+import { llmComplete, parseLooseJson } from "@/lib/claude";
 
 export const CITATION_PROMPT_VERSION = "citation-v1.0.0";
 
@@ -26,20 +26,12 @@ export async function assessCitation(input: {
 }): Promise<CitationAssessment> {
   const { question, brand, domain } = input;
 
-  const response = await anthropic.messages.create({
-    model: PRIMARY_MODEL,
-    max_tokens: 800,
+  const text = await llmComplete({
     system: SYSTEM_PROMPT,
-    tools: [{ type: "web_search_20250305", name: "web_search", max_uses: 3 }],
-    messages: [
-      {
-        role: "user",
-        content: `Marca: ${brand} (${domain})\nPregunta: ${question}\n\n¿Aparece ${domain} como fuente citada al responder esta pregunta? Devolvé el JSON.`,
-      },
-    ],
+    user: `Marca: ${brand} (${domain})\nPregunta: ${question}\n\n¿Aparece ${domain} como fuente citada al responder esta pregunta? Devolvé el JSON.`,
+    maxTokens: 800,
+    webSearch: true,
   });
-
-  const text = extractText(response);
   try {
     const parsed = parseLooseJson<CitationAssessment>(text);
     return {
@@ -54,5 +46,3 @@ export async function assessCitation(input: {
     return { cited: false, position: null, evidence: "" };
   }
 }
-
-export { PRIMARY_MODEL };

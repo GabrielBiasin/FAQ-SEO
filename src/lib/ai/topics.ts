@@ -1,4 +1,4 @@
-import { anthropic, PRIMARY_MODEL, extractText, parseJsonResponse } from "@/lib/claude";
+import { llmComplete, parseLooseJson } from "@/lib/claude";
 
 // Versioned prompt — bump on any change so evals stay attributable.
 export const TOPICS_PROMPT_VERSION = "topics-v1.0.0";
@@ -53,20 +53,13 @@ export async function analyzeTopics(pages: PageInput[]): Promise<TopicAnalysis> 
   }
   const digest = buildDigest(pages);
 
-  const response = await anthropic.messages.create({
-    model: PRIMARY_MODEL,
-    max_tokens: 2000,
+  const text = await llmComplete({
     system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `Contenido crawleado del sitio (${pages.length} páginas):\n\n${digest}`,
-      },
-    ],
+    user: `Contenido crawleado del sitio (${pages.length} páginas):\n\n${digest}`,
+    maxTokens: 2000,
+    json: true,
   });
-
-  const text = extractText(response);
-  const parsed = parseJsonResponse<TopicAnalysis>(text);
+  const parsed = parseLooseJson<TopicAnalysis>(text);
 
   // Defensive validation — never trust the shape blindly.
   if (!parsed.topic_summary || !Array.isArray(parsed.topics)) {

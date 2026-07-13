@@ -1,4 +1,4 @@
-import { anthropic, PRIMARY_MODEL, extractText, parseLooseJson } from "@/lib/claude";
+import { llmComplete, parseLooseJson } from "@/lib/claude";
 
 export const ANSWERS_PROMPT_VERSION = "answers-v1.0.0";
 
@@ -57,19 +57,12 @@ export async function generateAnswer(input: {
     ? `\n\n## Guía de voz / tono\n${voiceGuide}`
     : "";
 
-  const response = await anthropic.messages.create({
-    model: PRIMARY_MODEL,
-    max_tokens: 1200,
+  const text = await llmComplete({
     system: SYSTEM_PROMPT,
-    messages: [
-      {
-        role: "user",
-        content: `## Pregunta\n${question}\n\n## Páginas fuente\n${sourceBlock}${voiceBlock}`,
-      },
-    ],
+    user: `## Pregunta\n${question}\n\n## Páginas fuente\n${sourceBlock}${voiceBlock}`,
+    maxTokens: 1200,
+    json: true,
   });
-
-  const text = extractText(response);
   const parsed = parseLooseJson<GeneratedAnswer>(text);
   const validId = pages.some((p) => p.id === parsed.source_page_id)
     ? parsed.source_page_id
