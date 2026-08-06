@@ -56,7 +56,6 @@ export async function buildAuditContext(projectId: string): Promise<{
     .order("created_at", { ascending: true });
 
   const rootUrl = project.root_url;
-  const origin = new URL(rootUrl).origin;
 
   const pages: AuditPage[] = (pageRows ?? []).map((p) => ({
     id: p.id,
@@ -75,7 +74,20 @@ export async function buildAuditContext(projectId: string): Promise<{
     wordCount: p.word_count,
   }));
 
-  // robots.txt + sitemaps (pocas fetches).
+  const ctx = await buildContextFromPages(projectId, rootUrl, pages);
+  return { ctx, crawlId: crawl?.id ?? null };
+}
+
+/**
+ * Arma un AuditContext a partir de una lista de páginas ya extraídas + fetch
+ * en vivo de robots.txt y sitemaps del origen. Reutilizable para competidores.
+ */
+export async function buildContextFromPages(
+  projectId: string,
+  rootUrl: string,
+  pages: AuditPage[]
+): Promise<AuditContext> {
+  const origin = new URL(rootUrl).origin;
   const robotsRes = await fetchText(new URL("/robots.txt", origin).toString());
   const robotsTxt = robotsRes.text;
   const declaredSitemaps = robotsTxt
@@ -95,26 +107,20 @@ export async function buildAuditContext(projectId: string): Promise<{
       };
     })
   );
-
-  return {
-    ctx: { projectId, rootUrl, origin, pages, robotsTxt, sitemaps },
-    crawlId: crawl?.id ?? null,
-  };
+  return { projectId, rootUrl, origin, pages, robotsTxt, sitemaps };
 }
 
-/** Corre la auditoría P0 (dimensión Discoverability) y persiste un snapshot. */
-export async function runAudit(projectId: string): Promise<{ snapshotId: string; measured: number }> {
-  const built = await buildAuditContext(projectId);
-  if (!built) throw new Error("run_audit: proyecto no encontrado");
-  const { ctx, crawlId } = built;
-  if (ctx.pages.length === 0) {
-    throw new Error("run_audit: no hay páginas crawleadas. Corré un crawl primero.");
-  }
-
-  // PageSpeed del root (external, no determinista). Best-effort: si falla,
-  // las señales de performance quedan unavailable y no arrastran.
-  ctx.pagespeed = [await fetchPageSpeed(ctx.rootUrl)];
-
+/**
+ * Corre las sub-dimensiones de Readiness sobre un AuditContext ya armado
+ * (páginas + robots + sitemaps + pagespeed) y devuelve las mediciones, los
+ * DimensionScore por sub-dimensión y el roll-up de Readiness. Reutilizable
+ * tanto para el proyecto como para competidores.
+ */
+export async function computeReadiness(ctx: AuditContext): Promise<{
+  measurements: SignalMeasurement[];
+  subScores: DimensionScore[];
+  readiness: DimensionScore;
+}> {
   const allMeasurements: SignalMeasurement[] = [];
   const subScores: DimensionScore[] = [];
 
@@ -154,12 +160,29 @@ export async function runAudit(projectId: string): Promise<{ snapshotId: string;
     );
   }
 
-  // Roll-up de Readiness a partir de las sub-dimensiones.
-  const readinessScore = aggregateTopDimension({
+  const readiness = aggregateTopDimension({
     topDimension: "readiness",
     expectedSubDimensions: READINESS_SUBDIMENSIONS.length,
     subScores,
   });
+  return { measurements: allMeasurements, subScores, readiness };
+}
+
+/** Corre la auditoría P0 (dimensión Discoverability) y persiste un snapshot. */
+export async function runAudit(projectId: string): Promise<{ snapshotId: string; measured: number }> {
+  const built = await buildAuditContext(projectId);
+  if (!built) throw new Error("run_audit: proyecto no encontrado");
+  const { ctx, crawlId } = built;
+  if (ctx.pages.length === 0) {
+    throw new Error("run_audit: no hay páginas crawleadas. Corré un crawl primero.");
+  }
+
+  // PageSpeed del root (external, no determinista). Best-effort: si falla,
+  // las señales de performance quedan unavailable y no arrastran.
+  ctx.pagespeed = [await fetchPageSpeed(ctx.rootUrl)];
+
+  const { measurements: allMeasurements, subScores, readiness: readinessScore } =
+    await computeReadiness(ctx);
   const dimensionRows = [readinessScore, ...subScores];
   const measurements = allMeasurements;
 

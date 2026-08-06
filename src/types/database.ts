@@ -198,6 +198,144 @@ export type Database = {
         }
         Relationships: []
       }
+      competitors: {
+        Row: {
+          id: string
+          project_id: string
+          name: string
+          root_url: string
+          domain: string
+          source: string
+          is_priority: boolean
+          status: string
+          pages_count: number
+          error: string | null
+          last_run_at: string | null
+          max_pages: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          name: string
+          root_url: string
+          domain: string
+          source?: string
+          is_priority?: boolean
+          status?: string
+          pages_count?: number
+          error?: string | null
+          last_run_at?: string | null
+          max_pages?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          name?: string
+          root_url?: string
+          domain?: string
+          source?: string
+          is_priority?: boolean
+          status?: string
+          pages_count?: number
+          error?: string | null
+          last_run_at?: string | null
+          max_pages?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      competitor_pages: {
+        Row: {
+          id: string
+          competitor_id: string
+          url: string
+          title: string | null
+          headings: Json
+          clean_text: string
+          word_count: number
+          http_status: number | null
+          canonical_url: string | null
+          meta_robots: string | null
+          hreflang: Json
+          internal_links: Json
+          meta_description: string | null
+          img_total: number
+          img_with_alt: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          competitor_id: string
+          url: string
+          title?: string | null
+          headings?: Json
+          clean_text?: string
+          word_count?: number
+          http_status?: number | null
+          canonical_url?: string | null
+          meta_robots?: string | null
+          hreflang?: Json
+          internal_links?: Json
+          meta_description?: string | null
+          img_total?: number
+          img_with_alt?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          competitor_id?: string
+          url?: string
+          title?: string | null
+          headings?: Json
+          clean_text?: string
+          word_count?: number
+          http_status?: number | null
+          canonical_url?: string | null
+          meta_robots?: string | null
+          hreflang?: Json
+          internal_links?: Json
+          meta_description?: string | null
+          img_total?: number
+          img_with_alt?: number
+          created_at?: string
+        }
+        Relationships: []
+      }
+      competitor_snapshots: {
+        Row: {
+          id: string
+          competitor_id: string
+          methodology_version: string
+          signal_registry_version: string
+          readiness_score: number | null
+          coverage_score: number | null
+          dimensions: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          competitor_id: string
+          methodology_version: string
+          signal_registry_version: string
+          readiness_score?: number | null
+          coverage_score?: number | null
+          dimensions?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          competitor_id?: string
+          methodology_version?: string
+          signal_registry_version?: string
+          readiness_score?: number | null
+          coverage_score?: number | null
+          dimensions?: Json
+          created_at?: string
+        }
+        Relationships: []
+      }
       brand_audits: {
         Row: {
           created_at: string
@@ -930,6 +1068,7 @@ export type Database = {
         | "assign_placements"
         | "expand_section"
         | "run_audit"
+        | "run_competitor"
       project_status: "active" | "archived"
       question_class: "demand" | "coverage"
       question_intent:

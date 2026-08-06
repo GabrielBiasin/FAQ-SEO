@@ -13,6 +13,7 @@ import EvalTab from "@/components/tabs/EvalTab";
 import AuditTab from "@/components/tabs/AuditTab";
 import CoverageTab from "@/components/tabs/CoverageTab";
 import RecommendationsTab from "@/components/tabs/RecommendationsTab";
+import CompetitorsTab from "@/components/tabs/CompetitorsTab";
 import type { Database } from "@/types/database";
 
 type Project = Database["public"]["Tables"]["projects"]["Row"];
@@ -22,6 +23,7 @@ const TABS = [
   { key: "audit", label: "Auditoría GEO" },
   { key: "coverage", label: "Cobertura de demanda" },
   { key: "recommendations", label: "Recomendaciones" },
+  { key: "competitors", label: "Competencia" },
   { key: "questions", label: "Tópicos & Preguntas" },
   { key: "brand", label: "Auditoría de marca" },
   { key: "faqs", label: "FAQs" },
@@ -117,6 +119,8 @@ function TabContent({ tab, project }: { tab: TabKey; project: Project }) {
       return <CoverageTab projectId={project.id} />;
     case "recommendations":
       return <RecommendationsTab projectId={project.id} />;
+    case "competitors":
+      return <CompetitorsTab projectId={project.id} />;
     case "questions":
       return <TopicsQuestionsTab projectId={project.id} />;
     case "brand":

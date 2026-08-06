@@ -11,6 +11,7 @@ import { handleCitationCheck } from "./handlers/citation-check";
 import { handleAssignPlacements } from "./handlers/assign-placements";
 import { handleExpandSection } from "./handlers/expand-section";
 import { handleRunAudit } from "./handlers/run-audit";
+import { handleRunCompetitor } from "./handlers/run-competitor";
 
 export interface JobContext {
   jobId: string;
@@ -36,6 +37,7 @@ const handlers: Partial<Record<JobType, JobHandler>> = {
   assign_placements: handleAssignPlacements,
   expand_section: handleExpandSection,
   run_audit: handleRunAudit,
+  run_competitor: handleRunCompetitor,
 };
 
 export function registerHandler(type: JobType, handler: JobHandler) {
