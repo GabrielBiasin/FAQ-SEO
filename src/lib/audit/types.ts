@@ -75,9 +75,21 @@ export interface AuditPage {
   id: string;
   url: string;
   title: string | null;
+  httpStatus: number | null; // status HTTP capturado (null = no medido)
+  canonicalUrl: string | null; // <link rel=canonical> resuelto a absoluto
+  metaRobots: string | null; // contenido de <meta name=robots>
+  hreflang: { lang: string; href: string }[];
   headings: { tag: string; text: string }[];
+  internalLinks: string[]; // links absolutos al mismo host
   cleanText: string;
   wordCount: number;
+}
+
+export interface SitemapFetch {
+  url: string;
+  httpStatus: number | null;
+  xml: string | null; // contenido crudo (o null si 404/no accesible)
+  declaredInRobots: boolean;
 }
 
 export interface AuditContext {
@@ -86,6 +98,7 @@ export interface AuditContext {
   origin: string; // https://host
   pages: AuditPage[];
   robotsTxt: string | null; // contenido crudo de robots.txt (o null si no hay)
+  sitemaps: SitemapFetch[]; // candidatos ya fetcheados (robots + /sitemap.xml)
 }
 
 /**
