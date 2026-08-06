@@ -4,6 +4,9 @@ export interface ExtractedPage {
   cleanText: string;
   wordCount: number;
   links: string[];
+  canonicalUrl: string | null;
+  metaRobots: string | null;
+  hreflang: { lang: string; href: string }[];
 }
 
 function absolute(href: string, base: string): string | null {
@@ -39,6 +42,22 @@ export async function extractContent(html: string, baseUrl: string): Promise<Ext
     .map((h) => ({ tag: h.tagName.toLowerCase(), text: (h.textContent || "").trim() }))
     .filter((h) => h.text.length > 0);
 
+  // <head> signals for the audit (before Readability mutates the DOM).
+  const canonicalUrl = absolute(
+    document.querySelector('link[rel="canonical"]')?.getAttribute("href") || "",
+    baseUrl
+  );
+  const metaRobots =
+    document.querySelector('meta[name="robots"]')?.getAttribute("content")?.trim() || null;
+  const hreflang = Array.from(
+    document.querySelectorAll('link[rel="alternate"][hreflang]')
+  )
+    .map((l) => ({
+      lang: (l.getAttribute("hreflang") || "").trim(),
+      href: absolute(l.getAttribute("href") || "", baseUrl) || "",
+    }))
+    .filter((h) => h.lang && h.href);
+
   let cleanText = "";
   let title: string | null = document.title?.trim() || null;
   try {
@@ -59,5 +78,5 @@ export async function extractContent(html: string, baseUrl: string): Promise<Ext
   }
 
   const wordCount = cleanText ? cleanText.split(/\s+/).length : 0;
-  return { title, headings, cleanText, wordCount, links };
+  return { title, headings, cleanText, wordCount, links, canonicalUrl, metaRobots, hreflang };
 }

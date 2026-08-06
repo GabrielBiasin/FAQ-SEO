@@ -15,6 +15,11 @@ export interface CrawlResult {
   headings: { tag: string; text: string }[];
   cleanText: string;
   wordCount: number;
+  httpStatus: number | null;
+  canonicalUrl: string | null;
+  metaRobots: string | null;
+  hreflang: { lang: string; href: string }[];
+  internalLinks: string[];
 }
 
 export interface CrawlOptions {
@@ -51,7 +56,7 @@ function sameHost(a: string, b: string): boolean {
 // Skip obvious non-HTML assets by extension.
 const ASSET_RE = /\.(jpg|jpeg|png|gif|webp|svg|ico|css|js|pdf|zip|mp4|mp3|woff2?|ttf|xml|json)(\?|$)/i;
 
-async function fetchHtml(url: string): Promise<string | null> {
+async function fetchHtml(url: string): Promise<{ html: string | null; status: number | null }> {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -60,12 +65,13 @@ async function fetchHtml(url: string): Promise<string | null> {
       signal: controller.signal,
       redirect: "follow",
     });
-    if (!res.ok) return null;
+    const status = res.status;
+    if (!res.ok) return { html: null, status };
     const ct = res.headers.get("content-type") || "";
-    if (!ct.includes("text/html")) return null;
-    return await res.text();
+    if (!ct.includes("text/html")) return { html: null, status };
+    return { html: await res.text(), status };
   } catch {
-    return null;
+    return { html: null, status: null };
   } finally {
     clearTimeout(t);
   }
@@ -122,7 +128,7 @@ export async function crawlSite(opts: CrawlOptions): Promise<CrawlResult[]> {
   let i = 0;
   while (queue.length > 0 && results.length < maxPages) {
     const url = queue.shift()!;
-    const html = await fetchHtml(url);
+    const { html, status } = await fetchHtml(url);
     if (html) {
       const extracted = await extractContent(html, url);
       // Skip near-empty pages (likely redirects/landing shells).
@@ -133,6 +139,12 @@ export async function crawlSite(opts: CrawlOptions): Promise<CrawlResult[]> {
           headings: extracted.headings,
           cleanText: extracted.cleanText,
           wordCount: extracted.wordCount,
+          httpStatus: status,
+          canonicalUrl: extracted.canonicalUrl,
+          metaRobots: extracted.metaRobots,
+          hreflang: extracted.hreflang,
+          // Internal links = same-host absolute links (for the audit graph).
+          internalLinks: extracted.links.filter((l) => sameHost(l, rootUrl)),
         };
         results.push(page);
         if (opts.onPage) await opts.onPage(page, i++);

@@ -570,6 +570,11 @@ export type Database = {
           title: string | null
           url: string
           word_count: number
+          http_status: number | null
+          canonical_url: string | null
+          meta_robots: string | null
+          hreflang: Json
+          internal_links: Json
         }
         Insert: {
           clean_text?: string
@@ -581,6 +586,11 @@ export type Database = {
           title?: string | null
           url: string
           word_count?: number
+          http_status?: number | null
+          canonical_url?: string | null
+          meta_robots?: string | null
+          hreflang?: Json
+          internal_links?: Json
         }
         Update: {
           clean_text?: string
@@ -592,6 +602,11 @@ export type Database = {
           title?: string | null
           url?: string
           word_count?: number
+          http_status?: number | null
+          canonical_url?: string | null
+          meta_robots?: string | null
+          hreflang?: Json
+          internal_links?: Json
         }
         Relationships: [
           {
@@ -864,7 +879,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      insert_audit_snapshot: {
+        Args: {
+          p_project_id: string
+          p_methodology_version: string
+          p_signal_registry_version: string
+          p_input_kind: string
+          p_root_url: string | null
+          p_crawl_id: string | null
+          p_measurements: Json
+          p_dimensions: Json
+        }
+        Returns: string
+      }
     }
     Enums: {
       citation_engine: "chatgpt" | "claude" | "perplexity" | "gemini"
@@ -893,6 +920,7 @@ export type Database = {
         | "citation_check"
         | "assign_placements"
         | "expand_section"
+        | "run_audit"
       project_status: "active" | "archived"
       question_class: "demand" | "coverage"
       question_intent:
