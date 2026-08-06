@@ -47,6 +47,8 @@ export default function OverviewTab({
   const [competitors, setCompetitors] = useState<CompRef[]>([]);
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [crawling, setCrawling] = useState(false);
+  const [crawlPages, setCrawlPages] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -69,6 +71,35 @@ export default function OverviewTab({
   useEffect(() => {
     load();
   }, [load]);
+
+  // Vigila un crawl activo (recién creado el proyecto se cae acá con el crawl corriendo).
+  const checkCrawl = useCallback(async () => {
+    try {
+      const { crawl } = await apiGet<{ crawl: { status: string; pages_count: number } | null }>(
+        `/api/projects/${projectId}/crawl`
+      );
+      const active = crawl?.status === "queued" || crawl?.status === "running";
+      setCrawling(Boolean(active));
+      setCrawlPages(crawl?.pages_count ?? 0);
+      if (active) pokeWorker(projectId);
+      return Boolean(active);
+    } catch {
+      return false;
+    }
+  }, [projectId]);
+
+  useEffect(() => {
+    checkCrawl();
+  }, [checkCrawl]);
+
+  useEffect(() => {
+    if (!crawling) return;
+    const t = setInterval(async () => {
+      const still = await checkCrawl();
+      if (!still) load();
+    }, 3000);
+    return () => clearInterval(t);
+  }, [crawling, checkCrawl, load]);
 
   useEffect(() => {
     if (!running) return;
@@ -108,20 +139,32 @@ export default function OverviewTab({
 
   return (
     <div className="space-y-5">
-      {!hasSnapshot && (
-        <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-zinc-300 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
+      {crawling ? (
+        <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50 p-6">
+          <span className="h-3 w-3 animate-pulse rounded-full bg-blue-500" />
           <div>
-            <h3 className="text-sm font-semibold text-zinc-800">Empezá tu diagnóstico</h3>
-            <p className="text-xs text-zinc-500">Corré la primera Auditoría GEO para ver tus KPIs, gaps y recomendaciones.</p>
+            <h3 className="text-sm font-semibold text-blue-900">Crawleando el sitio…</h3>
+            <p className="text-xs text-blue-700">
+              {crawlPages > 0 ? `${crawlPages} páginas encontradas hasta ahora.` : "Descubriendo páginas."} En cuanto termine podés correr la Auditoría GEO.
+            </p>
           </div>
-          <button
-            onClick={runAudit}
-            disabled={running}
-            className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
-          >
-            {running ? "Auditando…" : "Correr auditoría"}
-          </button>
         </div>
+      ) : (
+        !hasSnapshot && (
+          <div className="flex flex-col items-start gap-3 rounded-xl border border-dashed border-zinc-300 bg-white p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-sm font-semibold text-zinc-800">Empezá tu diagnóstico</h3>
+              <p className="text-xs text-zinc-500">Corré la primera Auditoría GEO para ver tus KPIs, gaps y recomendaciones.</p>
+            </div>
+            <button
+              onClick={runAudit}
+              disabled={running}
+              className="rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+            >
+              {running ? "Auditando…" : "Correr auditoría"}
+            </button>
+          </div>
+        )
       )}
 
       {/* KPIs vitales */}
