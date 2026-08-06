@@ -198,6 +198,42 @@ export type Database = {
         }
         Relationships: []
       }
+      site_blueprints: {
+        Row: {
+          id: string
+          project_id: string
+          status: string
+          structure: Json
+          prompt_md: string | null
+          model: string | null
+          prompt_version: string | null
+          error: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          project_id: string
+          status?: string
+          structure?: Json
+          prompt_md?: string | null
+          model?: string | null
+          prompt_version?: string | null
+          error?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          project_id?: string
+          status?: string
+          structure?: Json
+          prompt_md?: string | null
+          model?: string | null
+          prompt_version?: string | null
+          error?: string | null
+          created_at?: string
+        }
+        Relationships: []
+      }
       competitors: {
         Row: {
           id: string
@@ -1069,6 +1105,7 @@ export type Database = {
         | "expand_section"
         | "run_audit"
         | "run_competitor"
+        | "build_blueprint"
       project_status: "active" | "archived"
       question_class: "demand" | "coverage"
       question_intent:
