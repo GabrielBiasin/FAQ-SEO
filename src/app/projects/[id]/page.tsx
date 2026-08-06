@@ -10,12 +10,14 @@ import FaqsTab from "@/components/tabs/FaqsTab";
 import BrandTab from "@/components/tabs/BrandTab";
 import ExportTab from "@/components/tabs/ExportTab";
 import EvalTab from "@/components/tabs/EvalTab";
+import AuditTab from "@/components/tabs/AuditTab";
 import type { Database } from "@/types/database";
 
 type Project = Database["public"]["Tables"]["projects"]["Row"];
 
 const TABS = [
   { key: "crawl", label: "Crawl" },
+  { key: "audit", label: "Auditoría GEO" },
   { key: "questions", label: "Tópicos & Preguntas" },
   { key: "brand", label: "Auditoría de marca" },
   { key: "faqs", label: "FAQs" },
@@ -105,6 +107,8 @@ function TabContent({ tab, project }: { tab: TabKey; project: Project }) {
   switch (tab) {
     case "crawl":
       return <CrawlTab projectId={project.id} />;
+    case "audit":
+      return <AuditTab projectId={project.id} />;
     case "questions":
       return <TopicsQuestionsTab projectId={project.id} />;
     case "brand":

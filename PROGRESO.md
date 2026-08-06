@@ -27,8 +27,12 @@ En el scratchpad de la sesión (o pedírselos al usuario): `spec-plataforma-geo.
 - **PR 0.1** ✅ Migración `0006`: `audit_snapshots`, `signal_measurements`, `evidence_items`, `dimension_scores`, `methodology_versions` + enums. Tipos DB.
 - **PR 0.2** ✅ Núcleo del contrato: `src/lib/audit/{types,registry,aggregate}.ts`. `computeRegistryVersion` (hash estable), `aggregateDimension` (regla de cobertura). vitest + tests.
 - **PR 0.3** ✅ 7 evaluadores deterministas de **Discoverability** (`src/lib/audit/signals/discoverability.ts`) + golden fixtures (sano/roto) + test de determinismo. 19 tests verdes.
-- **PR 0.4** ⏭️ **SIGUIENTE**: runner de auditoría. Extender el crawler para capturar `<head>` (canonical, meta robots, hreflang, httpStatus) + robots + sitemaps → armar `AuditContext` real → correr evaluadores → agregar dimensión → **persistir snapshot completo en una transacción (inmutable)**. AC: misma web dos veces ⇒ snapshot equivalente.
-- **PR 0.5** ⏭️ API `GET /api/projects/:id/audit/latest` + UI mínima que muestra score/estado/cobertura/confianza/evidencia (null-safe: `score: null` = "cobertura insuficiente", no 0).
+- **PR 0.4** ✅ Runner: crawler captura `<head>` (0007), `AuditContext` desde crawl + robots/sitemaps, corre evaluadores, agrega dimensión y persiste snapshot inmutable vía RPC `insert_audit_snapshot` (0008). Job `run_audit` + `POST/GET /api/projects/:id/audit`. Verificado: score 8.33, determinismo byte-idéntico.
+- **PR 0.5** ✅ Tab "Auditoría GEO" (`AuditTab.tsx`): score por dimensión (null-safe = "cobertura insuficiente"), estado, cobertura, confianza, y señales con evidencia expandible.
+
+### ✅ P0 COMPLETO — contrato de señales validado de la base a la pantalla.
+
+**SIGUIENTE = P1A**: (1) auditoría técnica determinista completa (más señales de Readiness), (2) **PageSpeed/CWV** (gratis, primer paso — estados field_measured/lab_measured), (3) matriz de cobertura de demanda, (4) agregación de Readiness (varias sub-dimensiones → dimensión top), (5) motor de recomendaciones por gaps. Ver `diseno-P0.md` §7.
 
 ## Fuera de P0 (no implementar aún)
 Authority, Visibility, SOV (orgánico/generativo), competencia, Arquitecto de sitio, PageSpeed/performance. P0 valida la maquinaria con Discoverability; **P1A** suma técnico completo + PageSpeed (gratis) + matriz de cobertura + Readiness + recomendaciones; **P1B**: competencia, Arquitecto JSON/MD, briefs, Schema.
