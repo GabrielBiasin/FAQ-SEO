@@ -12,6 +12,192 @@ export type Database = {
   }
   public: {
     Tables: {
+      audit_snapshots: {
+        Row: {
+          crawl_id: string | null
+          created_at: string
+          error: string | null
+          id: string
+          input_kind: string
+          methodology_version: string
+          project_id: string
+          root_url: string | null
+          signal_registry_version: string
+          status: Database["public"]["Enums"]["snapshot_status"]
+        }
+        Insert: {
+          crawl_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          input_kind: string
+          methodology_version: string
+          project_id: string
+          root_url?: string | null
+          signal_registry_version: string
+          status?: Database["public"]["Enums"]["snapshot_status"]
+        }
+        Update: {
+          crawl_id?: string | null
+          created_at?: string
+          error?: string | null
+          id?: string
+          input_kind?: string
+          methodology_version?: string
+          project_id?: string
+          root_url?: string | null
+          signal_registry_version?: string
+          status?: Database["public"]["Enums"]["snapshot_status"]
+        }
+        Relationships: []
+      }
+      dimension_scores: {
+        Row: {
+          confidence: number | null
+          coverage: number
+          id: string
+          measured_signals: number
+          project_id: string
+          score: number | null
+          snapshot_id: string
+          state: Database["public"]["Enums"]["measurement_state"]
+          sub_dimension: string | null
+          top_dimension: Database["public"]["Enums"]["top_dimension"]
+          total_signals: number
+        }
+        Insert: {
+          confidence?: number | null
+          coverage: number
+          id?: string
+          measured_signals?: number
+          project_id: string
+          score?: number | null
+          snapshot_id: string
+          state: Database["public"]["Enums"]["measurement_state"]
+          sub_dimension?: string | null
+          top_dimension: Database["public"]["Enums"]["top_dimension"]
+          total_signals?: number
+        }
+        Update: {
+          confidence?: number | null
+          coverage?: number
+          id?: string
+          measured_signals?: number
+          project_id?: string
+          score?: number | null
+          snapshot_id?: string
+          state?: Database["public"]["Enums"]["measurement_state"]
+          sub_dimension?: string | null
+          top_dimension?: Database["public"]["Enums"]["top_dimension"]
+          total_signals?: number
+        }
+        Relationships: []
+      }
+      evidence_items: {
+        Row: {
+          id: string
+          key: string
+          kind: string
+          measurement_id: string
+          project_id: string
+          url: string | null
+          value: Json
+        }
+        Insert: {
+          id?: string
+          key: string
+          kind: string
+          measurement_id: string
+          project_id: string
+          url?: string | null
+          value: Json
+        }
+        Update: {
+          id?: string
+          key?: string
+          kind?: string
+          measurement_id?: string
+          project_id?: string
+          url?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
+      methodology_versions: {
+        Row: {
+          created_at: string
+          notes: string | null
+          version: string
+        }
+        Insert: {
+          created_at?: string
+          notes?: string | null
+          version: string
+        }
+        Update: {
+          created_at?: string
+          notes?: string | null
+          version?: string
+        }
+        Relationships: []
+      }
+      signal_measurements: {
+        Row: {
+          confidence: number | null
+          error: string | null
+          id: string
+          measured_at: string
+          model: string | null
+          normalized: number | null
+          project_id: string
+          prompt_version: string | null
+          raw: Json
+          signal_id: string
+          signal_version: number
+          snapshot_id: string
+          state: Database["public"]["Enums"]["measurement_state"]
+          sub_dimension: string
+          top_dimension: Database["public"]["Enums"]["top_dimension"]
+          type: Database["public"]["Enums"]["signal_type"]
+        }
+        Insert: {
+          confidence?: number | null
+          error?: string | null
+          id?: string
+          measured_at?: string
+          model?: string | null
+          normalized?: number | null
+          project_id: string
+          prompt_version?: string | null
+          raw?: Json
+          signal_id: string
+          signal_version: number
+          snapshot_id: string
+          state: Database["public"]["Enums"]["measurement_state"]
+          sub_dimension: string
+          top_dimension: Database["public"]["Enums"]["top_dimension"]
+          type: Database["public"]["Enums"]["signal_type"]
+        }
+        Update: {
+          confidence?: number | null
+          error?: string | null
+          id?: string
+          measured_at?: string
+          model?: string | null
+          normalized?: number | null
+          project_id?: string
+          prompt_version?: string | null
+          raw?: Json
+          signal_id?: string
+          signal_version?: number
+          snapshot_id?: string
+          state?: Database["public"]["Enums"]["measurement_state"]
+          sub_dimension?: string
+          top_dimension?: Database["public"]["Enums"]["top_dimension"]
+          type?: Database["public"]["Enums"]["signal_type"]
+        }
+        Relationships: []
+      }
       brand_audits: {
         Row: {
           created_at: string
@@ -683,6 +869,19 @@ export type Database = {
     Enums: {
       citation_engine: "chatgpt" | "claude" | "perplexity" | "gemini"
       faq_status: "draft" | "needs_review" | "approved" | "rejected"
+      measurement_state:
+        | "measured"
+        | "inferred"
+        | "estimated"
+        | "field_measured"
+        | "lab_measured"
+        | "budget_defined"
+        | "unavailable"
+        | "experimental"
+        | "failed"
+      signal_type: "deterministic" | "llm_assisted" | "external" | "estimated"
+      snapshot_status: "running" | "done" | "error"
+      top_dimension: "readiness" | "authority" | "visibility"
       job_type:
         | "crawl_site"
         | "analyze_topics"
@@ -743,6 +942,10 @@ export type QuestionClass = DbEnums["question_class"];
 export type FaqStatus = DbEnums["faq_status"];
 export type CitationEngine = DbEnums["citation_engine"];
 export type SectionType = DbEnums["section_type"];
+export type MeasurementState = DbEnums["measurement_state"];
+export type SignalTypeEnum = DbEnums["signal_type"];
+export type SnapshotStatus = DbEnums["snapshot_status"];
+export type TopDimension = DbEnums["top_dimension"];
 
 type DbTables = Database["public"]["Tables"];
 export type ProjectRow = DbTables["projects"]["Row"];
@@ -759,3 +962,7 @@ export type EvalRow = DbTables["evals"]["Row"];
 export type CitationCheckRow = DbTables["citation_checks"]["Row"];
 export type SectionRow = DbTables["sections"]["Row"];
 export type IntentTemplateRow = DbTables["intent_templates"]["Row"];
+export type AuditSnapshotRow = DbTables["audit_snapshots"]["Row"];
+export type SignalMeasurementRow = DbTables["signal_measurements"]["Row"];
+export type EvidenceItemRow = DbTables["evidence_items"]["Row"];
+export type DimensionScoreRow = DbTables["dimension_scores"]["Row"];
