@@ -575,6 +575,9 @@ export type Database = {
           meta_robots: string | null
           hreflang: Json
           internal_links: Json
+          meta_description: string | null
+          img_total: number
+          img_with_alt: number
         }
         Insert: {
           clean_text?: string
@@ -591,6 +594,9 @@ export type Database = {
           meta_robots?: string | null
           hreflang?: Json
           internal_links?: Json
+          meta_description?: string | null
+          img_total?: number
+          img_with_alt?: number
         }
         Update: {
           clean_text?: string
@@ -607,6 +613,9 @@ export type Database = {
           meta_robots?: string | null
           hreflang?: Json
           internal_links?: Json
+          meta_description?: string | null
+          img_total?: number
+          img_with_alt?: number
         }
         Relationships: [
           {

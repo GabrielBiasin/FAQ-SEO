@@ -41,6 +41,10 @@ const SIGNAL_LABEL: Record<string, string> = {
   "performance.inp": "INP (Interaction to Next Paint)",
   "performance.cls": "CLS (Cumulative Layout Shift)",
   "performance.lighthouse_score": "Performance (Lighthouse)",
+  "onpage.title_present_unique": "Título presente y único",
+  "onpage.single_h1": "Un solo H1 por página",
+  "onpage.meta_description": "Meta description presente",
+  "onpage.image_alt": "Imágenes con texto alternativo",
 };
 
 const DIM_LABEL: Record<string, string> = {

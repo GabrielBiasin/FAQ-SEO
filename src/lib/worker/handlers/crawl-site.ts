@@ -57,6 +57,9 @@ export async function handleCrawlSite(ctx: JobContext): Promise<Json> {
           meta_robots: page.metaRobots,
           hreflang: page.hreflang as unknown as Json,
           internal_links: page.internalLinks as unknown as Json,
+          meta_description: page.metaDescription,
+          img_total: page.imgTotal,
+          img_with_alt: page.imgWithAlt,
         });
         count++;
         // Update running tally periodically for live progress.

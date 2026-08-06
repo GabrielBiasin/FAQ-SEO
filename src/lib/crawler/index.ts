@@ -20,6 +20,9 @@ export interface CrawlResult {
   metaRobots: string | null;
   hreflang: { lang: string; href: string }[];
   internalLinks: string[];
+  metaDescription: string | null;
+  imgTotal: number;
+  imgWithAlt: number;
 }
 
 export interface CrawlOptions {
@@ -145,6 +148,9 @@ export async function crawlSite(opts: CrawlOptions): Promise<CrawlResult[]> {
           hreflang: extracted.hreflang,
           // Internal links = same-host absolute links (for the audit graph).
           internalLinks: extracted.links.filter((l) => sameHost(l, rootUrl)),
+          metaDescription: extracted.metaDescription,
+          imgTotal: extracted.imgTotal,
+          imgWithAlt: extracted.imgWithAlt,
         };
         results.push(page);
         if (opts.onPage) await opts.onPage(page, i++);

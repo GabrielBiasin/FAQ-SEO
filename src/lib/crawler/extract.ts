@@ -7,6 +7,9 @@ export interface ExtractedPage {
   canonicalUrl: string | null;
   metaRobots: string | null;
   hreflang: { lang: string; href: string }[];
+  metaDescription: string | null;
+  imgTotal: number;
+  imgWithAlt: number;
 }
 
 function absolute(href: string, base: string): string | null {
@@ -58,6 +61,12 @@ export async function extractContent(html: string, baseUrl: string): Promise<Ext
     }))
     .filter((h) => h.lang && h.href);
 
+  const metaDescription =
+    document.querySelector('meta[name="description"]')?.getAttribute("content")?.trim() || null;
+  const imgs = Array.from(document.querySelectorAll("img"));
+  const imgTotal = imgs.length;
+  const imgWithAlt = imgs.filter((i) => (i.getAttribute("alt") || "").trim().length > 0).length;
+
   let cleanText = "";
   let title: string | null = document.title?.trim() || null;
   try {
@@ -78,5 +87,5 @@ export async function extractContent(html: string, baseUrl: string): Promise<Ext
   }
 
   const wordCount = cleanText ? cleanText.split(/\s+/).length : 0;
-  return { title, headings, cleanText, wordCount, links, canonicalUrl, metaRobots, hreflang };
+  return { title, headings, cleanText, wordCount, links, canonicalUrl, metaRobots, hreflang, metaDescription, imgTotal, imgWithAlt };
 }

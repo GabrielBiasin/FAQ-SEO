@@ -81,6 +81,9 @@ export interface AuditPage {
   hreflang: { lang: string; href: string }[];
   headings: { tag: string; text: string }[];
   internalLinks: string[]; // links absolutos al mismo host
+  metaDescription: string | null; // <meta name=description>
+  imgTotal: number; // cantidad de <img> en la página
+  imgWithAlt: number; // <img> con alt no vacío
   cleanText: string;
   wordCount: number;
 }

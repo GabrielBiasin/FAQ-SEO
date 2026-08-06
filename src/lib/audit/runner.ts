@@ -51,7 +51,7 @@ export async function buildAuditContext(projectId: string): Promise<{
 
   const { data: pageRows } = await db
     .from("pages")
-    .select("id, url, title, headings, clean_text, word_count, http_status, canonical_url, meta_robots, hreflang, internal_links")
+    .select("id, url, title, headings, clean_text, word_count, http_status, canonical_url, meta_robots, hreflang, internal_links, meta_description, img_total, img_with_alt")
     .eq("project_id", projectId)
     .order("created_at", { ascending: true });
 
@@ -68,6 +68,9 @@ export async function buildAuditContext(projectId: string): Promise<{
     hreflang: (p.hreflang as unknown as { lang: string; href: string }[]) ?? [],
     headings: (p.headings as unknown as { tag: string; text: string }[]) ?? [],
     internalLinks: (p.internal_links as unknown as string[]) ?? [],
+    metaDescription: p.meta_description ?? null,
+    imgTotal: p.img_total ?? 0,
+    imgWithAlt: p.img_with_alt ?? 0,
     cleanText: p.clean_text,
     wordCount: p.word_count,
   }));
