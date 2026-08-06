@@ -4,6 +4,7 @@ import { use, useEffect, useState } from "react";
 import Link from "next/link";
 import { apiGet } from "@/lib/api";
 import JobsPanel from "@/components/JobsPanel";
+import OverviewTab from "@/components/tabs/OverviewTab";
 import CrawlTab from "@/components/tabs/CrawlTab";
 import TopicsQuestionsTab from "@/components/tabs/TopicsQuestionsTab";
 import FaqsTab from "@/components/tabs/FaqsTab";
@@ -16,35 +17,78 @@ import RecommendationsTab from "@/components/tabs/RecommendationsTab";
 import CompetitorsTab from "@/components/tabs/CompetitorsTab";
 import TrackingTab from "@/components/tabs/TrackingTab";
 import ArchitectTab from "@/components/tabs/ArchitectTab";
+import {
+  LayoutDashboard,
+  Gauge,
+  Target,
+  Lightbulb,
+  Swords,
+  TrendingUp,
+  LayoutTemplate,
+  Spline,
+  MessageCircleQuestion,
+  HelpCircle,
+  ShieldCheck,
+  Download,
+  FlaskConical,
+  type LucideIcon,
+} from "lucide-react";
 import type { Database } from "@/types/database";
 
 type Project = Database["public"]["Tables"]["projects"]["Row"];
 
-const TABS = [
-  { key: "crawl", label: "Crawl" },
-  { key: "audit", label: "Auditoría GEO" },
-  { key: "coverage", label: "Cobertura de demanda" },
-  { key: "recommendations", label: "Recomendaciones" },
-  { key: "competitors", label: "Competencia" },
-  { key: "tracking", label: "Evolución" },
-  { key: "architect", label: "Arquitecto" },
-  { key: "questions", label: "Tópicos & Preguntas" },
-  { key: "brand", label: "Auditoría de marca" },
-  { key: "faqs", label: "FAQs" },
-  { key: "export", label: "Export" },
-  { key: "eval", label: "Eval" },
-] as const;
+interface TabDef {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+}
+interface NavGroup {
+  title: string | null;
+  tabs: TabDef[];
+}
 
-type TabKey = (typeof TABS)[number]["key"];
+const NAV: NavGroup[] = [
+  { title: null, tabs: [{ key: "overview", label: "Resumen", icon: LayoutDashboard }] },
+  {
+    title: "Diagnóstico",
+    tabs: [
+      { key: "audit", label: "Auditoría GEO", icon: Gauge },
+      { key: "coverage", label: "Cobertura de demanda", icon: Target },
+      { key: "recommendations", label: "Recomendaciones", icon: Lightbulb },
+    ],
+  },
+  {
+    title: "Competencia",
+    tabs: [
+      { key: "competitors", label: "Competencia", icon: Swords },
+      { key: "tracking", label: "Evolución", icon: TrendingUp },
+    ],
+  },
+  { title: "Estrategia", tabs: [{ key: "architect", label: "Arquitecto de sitio", icon: LayoutTemplate }] },
+  {
+    title: "Datos",
+    tabs: [
+      { key: "crawl", label: "Crawl", icon: Spline },
+      { key: "questions", label: "Demanda (tópicos & preguntas)", icon: MessageCircleQuestion },
+    ],
+  },
+  {
+    title: "Contenido",
+    tabs: [
+      { key: "faqs", label: "FAQs", icon: HelpCircle },
+      { key: "brand", label: "Auditoría de marca", icon: ShieldCheck },
+      { key: "export", label: "Export", icon: Download },
+      { key: "eval", label: "Eval", icon: FlaskConical },
+    ],
+  },
+];
 
-export default function ProjectDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+const ALL_TABS = NAV.flatMap((g) => g.tabs);
+
+export default function ProjectDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [project, setProject] = useState<Project | null>(null);
-  const [tab, setTab] = useState<TabKey>("crawl");
+  const [tab, setTab] = useState<string>("overview");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,62 +105,95 @@ export default function ProjectDetailPage({
     );
   if (!project) return <div className="p-8 text-zinc-500">Cargando…</div>;
 
+  const activeLabel = ALL_TABS.find((t) => t.key === tab)?.label ?? "";
+
   return (
     <div className="min-h-screen bg-zinc-50">
-      <header className="border-b border-zinc-200 bg-white px-8 py-5">
-        <div className="mx-auto max-w-5xl">
-          <Link href="/projects" className="text-sm text-zinc-500 hover:text-zinc-800">
-            ← Proyectos
-          </Link>
-          <h1 className="mt-2 text-2xl font-bold text-zinc-900">{project.name}</h1>
-          <p className="text-sm text-zinc-500">
+      <header className="border-b border-zinc-200 bg-white px-6 py-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between">
+          <div>
+            <Link href="/projects" className="text-xs text-zinc-500 hover:text-zinc-800">
+              ← Proyectos
+            </Link>
+            <h1 className="mt-1 text-xl font-bold text-zinc-900">{project.name}</h1>
             <a
               href={project.root_url}
               target="_blank"
               rel="noreferrer"
-              className="hover:underline"
+              className="text-xs text-zinc-500 hover:underline"
             >
               {project.domain}
             </a>
-          </p>
+          </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-5xl px-8">
-        <nav className="flex gap-1 border-b border-zinc-200">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`-mb-px border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
-                tab === t.key
-                  ? "border-zinc-900 text-zinc-900"
-                  : "border-transparent text-zinc-500 hover:text-zinc-800"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-6 lg:flex-row">
+        {/* Sidebar nav */}
+        <nav className="shrink-0 lg:w-60">
+          <div className="flex gap-1 overflow-x-auto pb-2 lg:flex-col lg:gap-0 lg:overflow-visible lg:pb-0">
+            {NAV.map((group, gi) => (
+              <div key={gi} className="lg:mb-3">
+                {group.title && (
+                  <div className="hidden px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 lg:block">
+                    {group.title}
+                  </div>
+                )}
+                <div className="flex gap-1 lg:flex-col">
+                  {group.tabs.map((t) => {
+                    const Icon = t.icon;
+                    const active = tab === t.key;
+                    return (
+                      <button
+                        key={t.key}
+                        onClick={() => setTab(t.key)}
+                        className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm transition-colors lg:w-full ${
+                          active
+                            ? "bg-zinc-900 font-medium text-white"
+                            : "text-zinc-600 hover:bg-zinc-100"
+                        }`}
+                      >
+                        <Icon size={15} className="shrink-0" />
+                        <span className="lg:truncate">{t.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
         </nav>
 
-        <div className="grid grid-cols-1 gap-6 py-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <TabContent tab={tab} project={project} />
+        {/* Main */}
+        <div className="min-w-0 flex-1">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-zinc-800">{activeLabel}</h2>
           </div>
-          <aside className="lg:col-span-1">
-            <h3 className="mb-2 text-sm font-semibold text-zinc-700">Trabajos</h3>
-            <JobsPanel projectId={id} />
-          </aside>
+          <TabContent tab={tab} project={project} onNavigate={setTab} />
         </div>
+
+        {/* Jobs */}
+        <aside className="shrink-0 lg:w-64">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-zinc-400">Trabajos</h3>
+          <JobsPanel projectId={id} />
+        </aside>
       </div>
     </div>
   );
 }
 
-function TabContent({ tab, project }: { tab: TabKey; project: Project }) {
+function TabContent({
+  tab,
+  project,
+  onNavigate,
+}: {
+  tab: string;
+  project: Project;
+  onNavigate: (tab: string) => void;
+}) {
   switch (tab) {
-    case "crawl":
-      return <CrawlTab projectId={project.id} />;
+    case "overview":
+      return <OverviewTab projectId={project.id} onNavigate={onNavigate} />;
     case "audit":
       return <AuditTab projectId={project.id} />;
     case "coverage":
@@ -129,12 +206,14 @@ function TabContent({ tab, project }: { tab: TabKey; project: Project }) {
       return <TrackingTab projectId={project.id} />;
     case "architect":
       return <ArchitectTab projectId={project.id} />;
+    case "crawl":
+      return <CrawlTab projectId={project.id} />;
     case "questions":
       return <TopicsQuestionsTab projectId={project.id} />;
-    case "brand":
-      return <BrandTab projectId={project.id} />;
     case "faqs":
       return <FaqsTab projectId={project.id} />;
+    case "brand":
+      return <BrandTab projectId={project.id} />;
     case "export":
       return <ExportTab projectId={project.id} />;
     case "eval":
