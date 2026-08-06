@@ -22,7 +22,8 @@ function build<Raw>(
   state: MeasurementState,
   raw: Raw,
   normalized: number | null,
-  evidence: EvidenceItem[]
+  evidence: EvidenceItem[],
+  error?: string
 ): SignalMeasurement<Raw> {
   return {
     signalId: def.id,
@@ -35,11 +36,20 @@ function build<Raw>(
     normalized,
     confidence: normalized === null ? null : state === "field_measured" ? 1 : 0.7,
     evidence,
+    error,
   };
 }
 
 function root(ctx: AuditContext) {
   return ctx.pagespeed?.[0] ?? null;
+}
+
+// Motivo de por qué no se pudo medir (para transparencia y debug).
+function unavailableReason(ctx: AuditContext): string {
+  const r = root(ctx);
+  if (!r) return "PageSpeed no ejecutado";
+  if (r.error) return `PageSpeed: ${r.error}`;
+  return "sin datos de campo ni laboratorio";
 }
 
 // Umbral lab → score (good/needs-improvement/poor).
@@ -86,7 +96,7 @@ const lcp: Evaluator = {
         { key: "value", kind: "count", value: `${Math.round(ms)} ms` },
       ]);
     }
-    return build(lcpDef, "unavailable", { source: null }, null, []);
+    return build(lcpDef, "unavailable", { source: null }, null, [{ key: "source", kind: "flag", value: unavailableReason(ctx) }], unavailableReason(ctx));
   },
 };
 
@@ -109,9 +119,7 @@ const inp: Evaluator = {
       ]);
     }
     // Lighthouse no reporta INP directamente → no medible sin campo.
-    return build(inpDef, "unavailable", { source: null }, null, [
-      { key: "source", kind: "flag", value: "sin datos de campo" },
-    ]);
+    return build(inpDef, "unavailable", { source: null }, null, [{ key: "source", kind: "flag", value: unavailableReason(ctx) }], unavailableReason(ctx));
   },
 };
 
@@ -140,7 +148,7 @@ const cls: Evaluator = {
         { key: "value", kind: "count", value: v.toFixed(3) },
       ]);
     }
-    return build(clsDef, "unavailable", { source: null }, null, []);
+    return build(clsDef, "unavailable", { source: null }, null, [{ key: "source", kind: "flag", value: unavailableReason(ctx) }], unavailableReason(ctx));
   },
 };
 
@@ -161,7 +169,7 @@ const lighthouse: Evaluator = {
         { key: "value", kind: "count", value: `${Math.round(s * 100)}/100` },
       ]);
     }
-    return build(lhDef, "unavailable", { perfScore: null }, null, []);
+    return build(lhDef, "unavailable", { perfScore: null }, null, [{ key: "source", kind: "flag", value: unavailableReason(ctx) }], unavailableReason(ctx));
   },
 };
 
