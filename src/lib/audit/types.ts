@@ -99,6 +99,8 @@ export interface AuditContext {
   pages: AuditPage[];
   robotsTxt: string | null; // contenido crudo de robots.txt (o null si no hay)
   sitemaps: SitemapFetch[]; // candidatos ya fetcheados (robots + /sitemap.xml)
+  // Resultados de PageSpeed ya fetcheados por el runner (external, no determinista).
+  pagespeed?: import("./pagespeed").PageSpeedResult[];
 }
 
 /**

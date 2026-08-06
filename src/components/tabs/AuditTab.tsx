@@ -37,6 +37,10 @@ const SIGNAL_LABEL: Record<string, string> = {
   "discoverability.http_health": "Salud HTTP (2xx)",
   "discoverability.orphans_click_depth": "Huérfanas y profundidad de clics",
   "discoverability.hreflang_valid": "hreflang válido",
+  "performance.lcp": "LCP (Largest Contentful Paint)",
+  "performance.inp": "INP (Interaction to Next Paint)",
+  "performance.cls": "CLS (Cumulative Layout Shift)",
+  "performance.lighthouse_score": "Performance (Lighthouse)",
 };
 
 const DIM_LABEL: Record<string, string> = {
@@ -157,9 +161,11 @@ export default function AuditTab({ projectId }: { projectId: string }) {
         </p>
       ) : (
         <>
-          {/* Dimensiones */}
+          {/* Dimensiones (roll-up top primero, luego sub-dimensiones) */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {dimensions.map((d) => {
+            {[...dimensions]
+              .sort((a, b) => (a.sub_dimension === null ? -1 : b.sub_dimension === null ? 1 : 0))
+              .map((d) => {
               const inRange = d.score !== null;
               return (
                 <div key={`${d.top_dimension}.${d.sub_dimension}`} className="rounded-lg border border-zinc-200 bg-white p-4">

@@ -6,9 +6,10 @@ import {
   evaluatorsForSubDimension,
   signalRegistryVersion,
 } from "./registry";
-import { aggregateDimension } from "./aggregate";
+import { aggregateDimension, aggregateTopDimension } from "./aggregate";
+import { fetchPageSpeed } from "./pagespeed";
 // Importar registra las señales en el registry.
-import "./signals";
+import { READINESS_SUBDIMENSIONS } from "./signals";
 
 const FETCH_TIMEOUT_MS = 12000;
 
@@ -107,36 +108,57 @@ export async function runAudit(projectId: string): Promise<{ snapshotId: string;
     throw new Error("run_audit: no hay páginas crawleadas. Corré un crawl primero.");
   }
 
-  const evaluators = evaluatorsForSubDimension("discoverability");
-  const measurements: SignalMeasurement[] = [];
-  for (const ev of evaluators) {
-    try {
-      measurements.push(await ev.measure(ctx));
-    } catch (err) {
-      measurements.push({
-        signalId: ev.definition.id,
-        signalVersion: ev.definition.version,
-        topDimension: ev.definition.topDimension,
-        subDimension: ev.definition.subDimension,
-        type: ev.definition.type,
-        state: "failed",
-        raw: {},
-        normalized: null,
-        confidence: null,
-        error: err instanceof Error ? err.message : String(err),
-        evidence: [],
-      });
+  // PageSpeed del root (external, no determinista). Best-effort: si falla,
+  // las señales de performance quedan unavailable y no arrastran.
+  ctx.pagespeed = [await fetchPageSpeed(ctx.rootUrl)];
+
+  const allMeasurements: SignalMeasurement[] = [];
+  const subScores: DimensionScore[] = [];
+
+  for (const sub of READINESS_SUBDIMENSIONS) {
+    const evaluators = evaluatorsForSubDimension(sub);
+    if (evaluators.length === 0) continue;
+    const measurements: SignalMeasurement[] = [];
+    for (const ev of evaluators) {
+      try {
+        measurements.push(await ev.measure(ctx));
+      } catch (err) {
+        measurements.push({
+          signalId: ev.definition.id,
+          signalVersion: ev.definition.version,
+          topDimension: ev.definition.topDimension,
+          subDimension: ev.definition.subDimension,
+          type: ev.definition.type,
+          state: "failed",
+          raw: {},
+          normalized: null,
+          confidence: null,
+          error: err instanceof Error ? err.message : String(err),
+          evidence: [],
+        });
+      }
     }
+    allMeasurements.push(...measurements);
+    const weights = Object.fromEntries(evaluators.map((e) => [e.definition.id, e.definition.weight]));
+    subScores.push(
+      aggregateDimension({
+        topDimension: "readiness",
+        subDimension: sub,
+        totalSignals: evaluators.length,
+        measurements,
+        weights,
+      })
+    );
   }
 
-  const weights = Object.fromEntries(evaluators.map((e) => [e.definition.id, e.definition.weight]));
-  const dimScore: DimensionScore = aggregateDimension({
+  // Roll-up de Readiness a partir de las sub-dimensiones.
+  const readinessScore = aggregateTopDimension({
     topDimension: "readiness",
-    subDimension: "discoverability",
-    totalSignals: evaluators.length,
-    measurements,
-    weights,
+    expectedSubDimensions: READINESS_SUBDIMENSIONS.length,
+    subScores,
   });
+  const dimensionRows = [readinessScore, ...subScores];
+  const measurements = allMeasurements;
 
   const db = createServiceClient();
   const { data, error } = await db.rpc("insert_audit_snapshot", {
@@ -161,20 +183,18 @@ export async function runAudit(projectId: string): Promise<{ snapshotId: string;
       error: m.error ?? null,
       evidence: m.evidence,
     })) as unknown as never,
-    p_dimensions: [
-      {
-        top_dimension: dimScore.topDimension,
-        sub_dimension: dimScore.subDimension,
-        score: dimScore.score,
-        state: dimScore.state,
-        coverage: dimScore.coverage,
-        confidence: dimScore.confidence,
-        measured_signals: dimScore.measuredSignals,
-        total_signals: dimScore.totalSignals,
-      },
-    ] as unknown as never,
+    p_dimensions: dimensionRows.map((d) => ({
+      top_dimension: d.topDimension,
+      sub_dimension: d.subDimension,
+      score: d.score,
+      state: d.state,
+      coverage: d.coverage,
+      confidence: d.confidence,
+      measured_signals: d.measuredSignals,
+      total_signals: d.totalSignals,
+    })) as unknown as never,
   });
   if (error) throw new Error(`run_audit: persist ${error.message}`);
 
-  return { snapshotId: data as unknown as string, measured: dimScore.measuredSignals };
+  return { snapshotId: data as unknown as string, measured: readinessScore.measuredSignals };
 }
