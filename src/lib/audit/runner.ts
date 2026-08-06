@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase";
 import { USER_AGENT } from "@/lib/crawler";
-import type { AuditContext, AuditPage, DimensionScore, SignalMeasurement } from "./types";
+import type { AuditContext, AuditPage, DimensionScore, SignalMeasurement, TopDimension } from "./types";
 import {
   METHODOLOGY_VERSION,
   evaluatorsForSubDimension,
@@ -8,8 +8,12 @@ import {
 } from "./registry";
 import { aggregateDimension, aggregateTopDimension } from "./aggregate";
 import { fetchPageSpeed } from "./pagespeed";
+import { fetchOrganicResults, serpEnabled } from "@/lib/serp";
+import type { SerpQueryResult } from "./types";
 // Importar registra las señales en el registry.
-import { READINESS_SUBDIMENSIONS } from "./signals";
+import { READINESS_SUBDIMENSIONS, SUBDIMENSIONS_BY_TOP } from "./signals";
+
+const SERP_QUERY_CAP = 10; // máximo de queries a consultar en SERP (control de quota)
 
 const FETCH_TIMEOUT_MS = 12000;
 
@@ -75,6 +79,16 @@ export async function buildAuditContext(projectId: string): Promise<{
   }));
 
   const ctx = await buildContextFromPages(projectId, rootUrl, pages);
+
+  // Queries objetivo para Visibility: preguntas priorizadas del proyecto.
+  const { data: qs } = await db
+    .from("questions")
+    .select("text, priority_score")
+    .eq("project_id", projectId)
+    .order("priority_score", { ascending: false })
+    .limit(30);
+  ctx.targetQueries = (qs ?? []).map((q) => ({ text: q.text, priority: q.priority_score ?? 1 }));
+
   return { ctx, crawlId: crawl?.id ?? null };
 }
 
@@ -88,6 +102,7 @@ export async function buildContextFromPages(
   pages: AuditPage[]
 ): Promise<AuditContext> {
   const origin = new URL(rootUrl).origin;
+  const domain = new URL(rootUrl).hostname.replace(/^www\./, "");
   const robotsRes = await fetchText(new URL("/robots.txt", origin).toString());
   const robotsTxt = robotsRes.text;
   const declaredSitemaps = robotsTxt
@@ -107,7 +122,7 @@ export async function buildContextFromPages(
       };
     })
   );
-  return { projectId, rootUrl, origin, pages, robotsTxt, sitemaps };
+  return { projectId, rootUrl, origin, domain, pages, robotsTxt, sitemaps };
 }
 
 /**
@@ -116,15 +131,15 @@ export async function buildContextFromPages(
  * DimensionScore por sub-dimensión y el roll-up de Readiness. Reutilizable
  * tanto para el proyecto como para competidores.
  */
-export async function computeReadiness(ctx: AuditContext): Promise<{
-  measurements: SignalMeasurement[];
-  subScores: DimensionScore[];
-  readiness: DimensionScore;
-}> {
+export async function computeTopDimension(
+  top: TopDimension,
+  subDimensions: string[],
+  ctx: AuditContext
+): Promise<{ measurements: SignalMeasurement[]; subScores: DimensionScore[]; rollup: DimensionScore }> {
   const allMeasurements: SignalMeasurement[] = [];
   const subScores: DimensionScore[] = [];
 
-  for (const sub of READINESS_SUBDIMENSIONS) {
+  for (const sub of subDimensions) {
     const evaluators = evaluatorsForSubDimension(sub);
     if (evaluators.length === 0) continue;
     const measurements: SignalMeasurement[] = [];
@@ -151,7 +166,7 @@ export async function computeReadiness(ctx: AuditContext): Promise<{
     const weights = Object.fromEntries(evaluators.map((e) => [e.definition.id, e.definition.weight]));
     subScores.push(
       aggregateDimension({
-        topDimension: "readiness",
+        topDimension: top,
         subDimension: sub,
         totalSignals: evaluators.length,
         measurements,
@@ -160,12 +175,40 @@ export async function computeReadiness(ctx: AuditContext): Promise<{
     );
   }
 
-  const readiness = aggregateTopDimension({
-    topDimension: "readiness",
-    expectedSubDimensions: READINESS_SUBDIMENSIONS.length,
+  const rollup = aggregateTopDimension({
+    topDimension: top,
+    expectedSubDimensions: subDimensions.length,
     subScores,
   });
-  return { measurements: allMeasurements, subScores, readiness };
+  return { measurements: allMeasurements, subScores, rollup };
+}
+
+/** Atajo de Readiness (reutilizado por el pipeline de competidores). */
+export async function computeReadiness(ctx: AuditContext): Promise<{
+  measurements: SignalMeasurement[];
+  subScores: DimensionScore[];
+  readiness: DimensionScore;
+}> {
+  const r = await computeTopDimension("readiness", [...READINESS_SUBDIMENSIONS], ctx);
+  return { measurements: r.measurements, subScores: r.subScores, readiness: r.rollup };
+}
+
+/**
+ * Fetch de resultados orgánicos para las queries objetivo (cap de quota).
+ * Devuelve undefined si SERP no está configurado o no hay queries → las señales
+ * de Visibility quedan unavailable (no ensucian).
+ */
+async function fetchSerpForQueries(
+  queries: { text: string; priority: number }[]
+): Promise<SerpQueryResult[] | undefined> {
+  if (!serpEnabled() || queries.length === 0) return undefined;
+  const top = [...queries].sort((a, b) => b.priority - a.priority).slice(0, SERP_QUERY_CAP);
+  const out: SerpQueryResult[] = [];
+  for (const q of top) {
+    const organic = await fetchOrganicResults(q.text);
+    out.push({ query: q.text, priority: q.priority, organic });
+  }
+  return out;
 }
 
 /** Corre la auditoría P0 (dimensión Discoverability) y persiste un snapshot. */
@@ -181,9 +224,25 @@ export async function runAudit(projectId: string): Promise<{ snapshotId: string;
   // las señales de performance quedan unavailable y no arrastran.
   ctx.pagespeed = [await fetchPageSpeed(ctx.rootUrl)];
 
-  const { measurements: allMeasurements, subScores, readiness: readinessScore } =
-    await computeReadiness(ctx);
-  const dimensionRows = [readinessScore, ...subScores];
+  // SERP para las queries objetivo (Visibility). Best-effort: sin key → serp
+  // queda undefined y las señales de Visibility salen unavailable.
+  ctx.serp = await fetchSerpForQueries(ctx.targetQueries ?? []);
+
+  // Computa las 3 dimensiones top (readiness/authority/visibility).
+  const allMeasurements: SignalMeasurement[] = [];
+  const dimensionRows: DimensionScore[] = [];
+  for (const top of Object.keys(SUBDIMENSIONS_BY_TOP) as TopDimension[]) {
+    const { measurements: ms, subScores, rollup } = await computeTopDimension(
+      top,
+      SUBDIMENSIONS_BY_TOP[top],
+      ctx
+    );
+    allMeasurements.push(...ms);
+    dimensionRows.push(rollup, ...subScores);
+  }
+  const readinessScore = dimensionRows.find(
+    (d) => d.topDimension === "readiness" && d.subDimension === null
+  )!;
   const measurements = allMeasurements;
 
   const db = createServiceClient();

@@ -45,6 +45,10 @@ const SIGNAL_LABEL: Record<string, string> = {
   "onpage.single_h1": "Un solo H1 por página",
   "onpage.meta_description": "Meta description presente",
   "onpage.image_alt": "Imágenes con texto alternativo",
+  "authority.content_depth": "Profundidad de contenido (proxy)",
+  "authority.internal_linking": "Enlazado interno (proxy)",
+  "visibility.serp_coverage": "Presencia orgánica (SOV top 10)",
+  "visibility.serp_avg_position": "Posición orgánica promedio",
 };
 
 const DIM_LABEL: Record<string, string> = {
@@ -141,7 +145,7 @@ export default function AuditTab({ projectId }: { projectId: string }) {
     <div className="space-y-4">
       <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white p-4">
         <div>
-          <h3 className="text-sm font-semibold text-zinc-800">Auditoría GEO — Readiness</h3>
+          <h3 className="text-sm font-semibold text-zinc-800">Auditoría GEO — Readiness · Authority · Visibility</h3>
           <p className="text-xs text-zinc-500">
             Señales deterministas con evidencia. {snapshot && `Metodología ${snapshot.methodology_version} · ${new Date(snapshot.created_at).toLocaleString()}`}
           </p>
@@ -168,7 +172,16 @@ export default function AuditTab({ projectId }: { projectId: string }) {
           {/* Dimensiones (roll-up top primero, luego sub-dimensiones) */}
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {[...dimensions]
-              .sort((a, b) => (a.sub_dimension === null ? -1 : b.sub_dimension === null ? 1 : 0))
+              .sort((a, b) => {
+                const order = { readiness: 0, authority: 1, visibility: 2 } as Record<string, number>;
+                const ta = order[a.top_dimension] ?? 9;
+                const tb = order[b.top_dimension] ?? 9;
+                if (ta !== tb) return ta - tb;
+                // dentro de cada dimensión: roll-up (sub null) primero
+                if (a.sub_dimension === null) return -1;
+                if (b.sub_dimension === null) return 1;
+                return 0;
+              })
               .map((d) => {
               const inRange = d.score !== null;
               return (

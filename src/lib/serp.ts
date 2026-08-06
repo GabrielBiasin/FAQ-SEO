@@ -64,6 +64,52 @@ export async function fetchAutocomplete(query: string): Promise<SerpQuestion[]> 
   }
 }
 
+export interface OrganicHit {
+  position: number;
+  domain: string;
+  url: string;
+}
+
+/** Extrae el host (sin www) de una URL, o null. */
+function hostOf(u: string): string | null {
+  try {
+    return new URL(u).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resultados orgánicos de Google (posición + dominio) para una query, vía
+ * SerpApi. Devuelve [] si no hay key o ante cualquier error.
+ */
+export async function fetchOrganicResults(query: string, gl = "ar", hl = "es"): Promise<OrganicHit[]> {
+  const key = process.env.SERP_API_KEY;
+  if (!key) return [];
+  try {
+    const url = new URL("https://serpapi.com/search.json");
+    url.searchParams.set("engine", "google");
+    url.searchParams.set("q", query);
+    url.searchParams.set("gl", gl);
+    url.searchParams.set("hl", hl);
+    url.searchParams.set("num", "10");
+    url.searchParams.set("api_key", key);
+    const res = await fetch(url.toString());
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      organic_results?: { position?: number; link?: string }[];
+    };
+    return (data.organic_results ?? [])
+      .map((r, i) => {
+        const domain = r.link ? hostOf(r.link) : null;
+        return domain ? { position: r.position ?? i + 1, domain, url: r.link! } : null;
+      })
+      .filter((r): r is OrganicHit => r !== null);
+  } catch {
+    return [];
+  }
+}
+
 /** Gather PAA + autocomplete for several seed queries, deduped by text. */
 export async function gatherSerpSignals(queries: string[]): Promise<SerpQuestion[]> {
   if (!serpEnabled()) return [];

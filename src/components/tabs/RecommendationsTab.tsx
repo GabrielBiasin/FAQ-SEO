@@ -27,6 +27,8 @@ const AREA_LABEL: Record<string, string> = {
   onpage: "On-page",
   performance: "Performance",
   coverage: "Cobertura",
+  authority: "Authority",
+  visibility: "Visibility",
 };
 
 export default function RecommendationsTab({ projectId }: { projectId: string }) {

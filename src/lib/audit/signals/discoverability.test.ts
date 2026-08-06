@@ -29,6 +29,7 @@ const GOOD: AuditContext = {
   projectId: "p",
   rootUrl: "https://acme.test/",
   origin: "https://acme.test",
+  domain: "acme.test",
   robotsTxt: "User-agent: *\nDisallow:\nSitemap: https://acme.test/sitemap.xml",
   sitemaps: [
     {
@@ -49,6 +50,7 @@ const BAD: AuditContext = {
   projectId: "p",
   rootUrl: "https://acme.test/",
   origin: "https://acme.test",
+  domain: "acme.test",
   robotsTxt: "User-agent: *\nDisallow: /",
   sitemaps: [{ url: "https://acme.test/sitemap.xml", httpStatus: 404, declaredInRobots: false, xml: null }],
   pages: [

@@ -95,15 +95,26 @@ export interface SitemapFetch {
   declaredInRobots: boolean;
 }
 
+export interface SerpQueryResult {
+  query: string;
+  priority: number;
+  organic: { position: number; domain: string; url: string }[];
+}
+
 export interface AuditContext {
   projectId: string;
   rootUrl: string;
   origin: string; // https://host
+  domain: string; // host sin www (para matchear en SERP)
   pages: AuditPage[];
   robotsTxt: string | null; // contenido crudo de robots.txt (o null si no hay)
   sitemaps: SitemapFetch[]; // candidatos ya fetcheados (robots + /sitemap.xml)
   // Resultados de PageSpeed ya fetcheados por el runner (external, no determinista).
   pagespeed?: import("./pagespeed").PageSpeedResult[];
+  // Queries objetivo (demanda priorizada) para señales de Visibility.
+  targetQueries?: { text: string; priority: number }[];
+  // Resultados SERP ya fetcheados por el runner (external). undefined = no ejecutado.
+  serp?: SerpQueryResult[];
 }
 
 /**

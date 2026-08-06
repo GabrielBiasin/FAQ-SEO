@@ -104,6 +104,26 @@ const SIGNAL_TEMPLATE: Record<string, { title: string; detail: string; area: str
     detail: "El alt mejora accesibilidad, SEO de imágenes y comprensión del contenido.",
     area: "onpage",
   },
+  "authority.content_depth": {
+    title: "Profundizar el contenido de las páginas clave",
+    detail: "Poca proporción de contenido sustancial (≥600 palabras). El contenido en profundidad genera autoridad temática y más citas.",
+    area: "authority",
+  },
+  "authority.internal_linking": {
+    title: "Reforzar el enlazado interno",
+    detail: "Baja densidad de enlaces internos. Enlazá entre páginas relacionadas para distribuir autoridad y facilitar el rastreo.",
+    area: "authority",
+  },
+  "visibility.serp_coverage": {
+    title: "Ganar presencia orgánica en queries objetivo",
+    detail: "El dominio no aparece en el top 10 para buena parte de tus queries. Priorizá contenido + on-page para esas búsquedas.",
+    area: "visibility",
+  },
+  "visibility.serp_avg_position": {
+    title: "Mejorar el ranking orgánico donde ya aparecés",
+    detail: "Aparecés pero en posiciones bajas. Reforzá esas páginas (contenido, enlazado, intención) para subir posiciones.",
+    area: "visibility",
+  },
 };
 
 function severityFromScore(score: number): Severity {

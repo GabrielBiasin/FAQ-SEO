@@ -29,6 +29,7 @@ function ctx(pages: AuditPage[]): AuditContext {
     projectId: "p",
     rootUrl: "https://acme.test/",
     origin: "https://acme.test",
+    domain: "acme.test",
     robotsTxt: null,
     sitemaps: [],
     pages,
